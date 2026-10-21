@@ -76,7 +76,8 @@ class Llm::BaseAiService
   end
 
   def installation_model
-    InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_MODEL')&.value
+    InstallationConfig.find_by(name: 'CAPTAIN_LLM_MODEL')&.value.presence ||
+      InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_MODEL')&.value
   end
 
   def setup_temperature

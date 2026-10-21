@@ -213,6 +213,15 @@ RSpec.describe Integrations::Hook do
 
       expect(hook).to be_valid
     end
+
+    it 'skips openai key validation when the Captain provider is Bedrock' do
+      allow(Llm::Config).to receive(:bedrock_provider?).and_return(true)
+      allow(Integrations::Openai::KeyValidator).to receive(:valid?).and_return(false)
+
+      hook = build(:integrations_hook, :openai, account: account, settings: { 'api_key' => 'unused-for-bedrock' })
+
+      expect(hook).to be_valid
+    end
   end
 
   describe 'cloudflare realtimekit credential validation' do

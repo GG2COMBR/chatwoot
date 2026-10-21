@@ -87,6 +87,46 @@ RSpec.describe Llm::FeatureRouter do
       )
     end
 
+    context 'when the Bedrock provider is configured' do
+      before do
+        allow(ChatwootApp).to receive(:self_hosted_paid?).and_return(true)
+        allow(Llm::Config).to receive(:bedrock_provider?).and_return(true)
+        InstallationConfig.find_or_initialize_by(name: 'CAPTAIN_LLM_MODEL').update!(value: 'amazon.nova-2-lite-v1:0')
+      end
+
+      it 'applies the installation model to non-completion features' do
+        resolved = described_class.resolve(feature: 'editor', account: account)
+
+        expect(resolved).to include(
+          feature: 'editor',
+          provider: 'bedrock',
+          model: 'amazon.nova-2-lite-v1:0',
+          source: :installation_override
+        )
+      end
+
+      it 'prefers CAPTAIN_LLM_MODEL over the legacy CAPTAIN_OPEN_AI_MODEL' do
+        InstallationConfig.find_or_initialize_by(name: 'CAPTAIN_OPEN_AI_MODEL').update!(value: 'gpt-4.1')
+
+        resolved = described_class.resolve(feature: 'editor', account: account)
+
+        expect(resolved).to include(model: 'amazon.nova-2-lite-v1:0', source: :installation_override)
+      end
+    end
+
+    it 'does not apply the installation model to non-completion features for OpenAI' do
+      allow(ChatwootApp).to receive(:self_hosted_paid?).and_return(true)
+      InstallationConfig.find_or_initialize_by(name: 'CAPTAIN_OPEN_AI_MODEL').update!(value: 'gpt-5.1')
+
+      resolved = described_class.resolve(feature: 'editor', account: account)
+
+      expect(resolved).to include(
+        provider: 'openai',
+        model: 'gpt-4.1-mini',
+        source: :default
+      )
+    end
+
     it 'resolves GPT-5.2 as the assistant default when Captain V2 is enabled without storing an account override' do
       account.enable_features!('captain_integration')
 

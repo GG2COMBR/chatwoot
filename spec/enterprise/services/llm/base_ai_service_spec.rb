@@ -6,7 +6,7 @@ RSpec.describe Llm::BaseAiService do
   let(:account) { create(:account) }
 
   before do
-    InstallationConfig.where(name: %w[CAPTAIN_OPEN_AI_API_KEY CAPTAIN_OPEN_AI_MODEL]).destroy_all
+    InstallationConfig.where(name: %w[CAPTAIN_OPEN_AI_API_KEY CAPTAIN_OPEN_AI_MODEL CAPTAIN_LLM_MODEL]).destroy_all
     create(:installation_config, name: 'CAPTAIN_OPEN_AI_API_KEY', value: 'test-key')
   end
 
@@ -15,6 +15,13 @@ RSpec.describe Llm::BaseAiService do
       create(:installation_config, name: 'CAPTAIN_OPEN_AI_MODEL', value: 'gpt-4.1-nano')
 
       expect(described_class.new.model).to eq('gpt-4.1-nano')
+    end
+
+    it 'prefers CAPTAIN_LLM_MODEL over the legacy CAPTAIN_OPEN_AI_MODEL' do
+      create(:installation_config, name: 'CAPTAIN_OPEN_AI_MODEL', value: 'gpt-4.1-nano')
+      create(:installation_config, name: 'CAPTAIN_LLM_MODEL', value: 'amazon.nova-2-lite-v1:0')
+
+      expect(described_class.new.model).to eq('amazon.nova-2-lite-v1:0')
     end
 
     it 'uses the account override when feature context is provided' do

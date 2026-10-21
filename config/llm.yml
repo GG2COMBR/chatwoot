@@ -5,6 +5,8 @@ providers:
     display_name: 'Anthropic'
   gemini:
     display_name: 'Gemini'
+  bedrock:
+    display_name: 'AWS Bedrock'
 
 models:
   gpt-4.1:
@@ -63,6 +65,22 @@ models:
     display_name: 'Gemini 3 Pro'
     coming_soon: true
     credit_multiplier: 3
+  'amazon.nova-2-lite-v1:0':
+    provider: bedrock
+    display_name: 'Amazon Nova 2 Lite'
+    credit_multiplier: 1
+  'amazon.nova-micro-v1:0':
+    provider: bedrock
+    display_name: 'Amazon Nova Micro'
+    credit_multiplier: 1
+  'amazon.nova-lite-v1:0':
+    provider: bedrock
+    display_name: 'Amazon Nova Lite'
+    credit_multiplier: 1
+  'amazon.nova-pro-v1:0':
+    provider: bedrock
+    display_name: 'Amazon Nova Pro'
+    credit_multiplier: 2
   whisper-1:
     provider: openai
     display_name: 'Whisper'
@@ -74,6 +92,10 @@ models:
   text-embedding-3-small:
     provider: openai
     display_name: 'Text Embedding 3 Small'
+    credit_multiplier: 1
+  'amazon.titan-embed-text-v2:0':
+    provider: bedrock
+    display_name: 'Amazon Titan Text Embeddings V2'
     credit_multiplier: 1
 
 features:
@@ -100,6 +122,10 @@ features:
         claude-haiku-4.5,
         gemini-3-flash,
         gemini-3-pro,
+        'amazon.nova-2-lite-v1:0',
+        'amazon.nova-micro-v1:0',
+        'amazon.nova-lite-v1:0',
+        'amazon.nova-pro-v1:0',
       ]
     default: gpt-4.1-mini
   assistant:
@@ -115,6 +141,10 @@ features:
         claude-sonnet-4.5,
         gemini-3-flash,
         gemini-3-pro,
+        'amazon.nova-2-lite-v1:0',
+        'amazon.nova-micro-v1:0',
+        'amazon.nova-lite-v1:0',
+        'amazon.nova-pro-v1:0',
       ]
     default: gpt-4.1
   copilot:
@@ -130,6 +160,10 @@ features:
         claude-sonnet-4.5,
         gemini-3-flash,
         gemini-3-pro,
+        'amazon.nova-2-lite-v1:0',
+        'amazon.nova-micro-v1:0',
+        'amazon.nova-lite-v1:0',
+        'amazon.nova-pro-v1:0',
       ]
     default: gpt-4.1
   document_faq_generation:
@@ -144,6 +178,10 @@ features:
         claude-sonnet-4.5,
         gemini-3-flash,
         gemini-3-pro,
+        'amazon.nova-2-lite-v1:0',
+        'amazon.nova-micro-v1:0',
+        'amazon.nova-lite-v1:0',
+        'amazon.nova-pro-v1:0',
       ]
     default: gpt-4.1-mini
   conversation_faq_generation:
@@ -158,6 +196,10 @@ features:
         claude-sonnet-4.5,
         gemini-3-flash,
         gemini-3-pro,
+        'amazon.nova-2-lite-v1:0',
+        'amazon.nova-micro-v1:0',
+        'amazon.nova-lite-v1:0',
+        'amazon.nova-pro-v1:0',
       ]
     default: gpt-5.2
   conversation_faq_matching:
@@ -172,6 +214,10 @@ features:
         claude-sonnet-4.5,
         gemini-3-flash,
         gemini-3-pro,
+        'amazon.nova-2-lite-v1:0',
+        'amazon.nova-micro-v1:0',
+        'amazon.nova-lite-v1:0',
+        'amazon.nova-pro-v1:0',
       ]
     default: gpt-4.1-mini
   pdf_faq_generation:
@@ -189,11 +235,15 @@ features:
         claude-sonnet-4.5,
         gemini-3-flash,
         gemini-3-pro,
+        'amazon.nova-2-lite-v1:0',
+        'amazon.nova-micro-v1:0',
+        'amazon.nova-lite-v1:0',
+        'amazon.nova-pro-v1:0',
       ]
     default: gpt-5.2
   onboarding_content_generation:
     models:
-      [gpt-4.1, gpt-4.1-mini, gpt-5-mini, gpt-5.1, gpt-5.2]
+      [gpt-4.1, gpt-4.1-mini, gpt-5-mini, gpt-5.1, gpt-5.2, 'amazon.nova-2-lite-v1:0', 'amazon.nova-pro-v1:0']
     default: gpt-4.1
   help_center_query_translation:
     models: [gpt-4.1-nano, gpt-4.1-mini, gpt-5-mini]
@@ -208,5 +258,5 @@ features:
     models: [gpt-4o-mini-transcribe, whisper-1]
     default: gpt-4o-mini-transcribe
   help_center_search:
-    models: [text-embedding-3-small]
+    models: [text-embedding-3-small, 'amazon.titan-embed-text-v2:0']
     default: text-embedding-3-small

@@ -138,6 +138,8 @@ class Integrations::Hook < ApplicationRecord
   # TODO: When adding credential validation for other integrations (dialogflow, dyte, etc.),
   # extract this into an app-level config flag in apps.yml instead of hardcoding app_id checks.
   def validate_openai_api_key?
+    return false if Llm::Config.bedrock_provider?
+
     openai? && enabled? && (new_record? || openai_api_key_changed? || will_save_change_to_status?)
   end
 

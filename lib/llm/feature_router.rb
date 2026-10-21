@@ -49,10 +49,16 @@ module Llm::FeatureRouter
     end
 
     def installation_model_override(feature_key)
-      return unless feature_key == 'conversation_completion'
       return unless ChatwootApp.self_hosted_paid?
 
-      InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_MODEL')&.value.presence
+      # For OpenAI, the installation model historically overrides only the
+      # conversation_completion feature. For Bedrock, the default per-feature
+      # models (OpenAI model ids) are not usable, so the configured model must
+      # apply to every feature.
+      return unless Llm::Config.bedrock_provider? || feature_key == 'conversation_completion'
+
+      InstallationConfig.find_by(name: 'CAPTAIN_LLM_MODEL')&.value.presence ||
+        InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_MODEL')&.value.presence
     end
 
     def provider_for(model, source)
