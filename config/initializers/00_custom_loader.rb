@@ -14,6 +14,7 @@
 
 custom_app_path = Rails.root.join('custom/app')
 custom_lib_path = Rails.root.join('custom/lib')
+custom_migrate_path = Rails.root.join('custom/db/migrate')
 
 if Dir.exist?(custom_app_path)
   Dir.glob(custom_app_path.join('*')).select { |entry| File.directory?(entry) }.each do |dir|
@@ -25,4 +26,10 @@ end
 if Dir.exist?(custom_lib_path)
   custom_lib_str = custom_lib_path.to_s
   Rails.autoloaders.main.push_dir(custom_lib_str) unless Rails.autoloaders.main.dirs.include?(custom_lib_str)
+end
+
+if Dir.exist?(custom_migrate_path)
+  custom_migrate_str = custom_migrate_path.to_s
+  Rails.application.config.paths['db/migrate'] << custom_migrate_str unless Rails.application.config.paths['db/migrate'].include?(custom_migrate_str)
+  ActiveRecord::Migrator.migrations_paths << custom_migrate_str unless ActiveRecord::Migrator.migrations_paths.include?(custom_migrate_str)
 end
