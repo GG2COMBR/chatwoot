@@ -50,6 +50,35 @@ const updateButtonTitle = (index, title) => {
   currentButtons[index] = { ...currentButtons[index], title };
   updateData('buttons', currentButtons);
 };
+
+const addItem = () => {
+  const currentItems = [...(nodeData.value.items || [])];
+  if (currentItems.length >= 10) return;
+
+  currentItems.push({
+    id: `item_${Date.now()}`,
+    title: `Opção ${currentItems.length + 1}`,
+    description: '',
+  });
+  updateData('items', currentItems);
+};
+
+const removeItem = index => {
+  const currentItems = [...(nodeData.value.items || [])];
+  currentItems.splice(index, 1);
+  updateData('items', currentItems);
+};
+
+const updateItemField = (index, field, value) => {
+  const currentItems = [...(nodeData.value.items || [])];
+  currentItems[index] = { ...currentItems[index], [field]: value };
+  updateData('items', currentItems);
+};
+
+const appendVariable = (field, tag) => {
+  const currentValue = nodeData.value[field] || '';
+  updateData(field, `${currentValue}${currentValue ? ' ' : ''}${tag}`);
+};
 </script>
 
 <template>
@@ -103,6 +132,23 @@ const updateButtonTitle = (index, title) => {
           class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
           @input="updateData('text', $event.target.value)"
         />
+        <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+          <span class="text-[10px] text-n-slate-10">Inserir:</span>
+          <button
+            type="button"
+            class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+            @click="appendVariable('text', '{{contact.first_name}}')"
+          >
+            {{contact.first_name}}
+          </button>
+          <button
+            type="button"
+            class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+            @click="appendVariable('text', '{{contact.name}}')"
+          >
+            {{contact.name}}
+          </button>
+        </div>
       </div>
 
       <!-- Configuração por Tipo: Pergunta com Botões -->
@@ -118,6 +164,23 @@ const updateButtonTitle = (index, title) => {
             class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
             @input="updateData('body', $event.target.value)"
           />
+          <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <span class="text-[10px] text-n-slate-10">Inserir:</span>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('body', '{{contact.first_name}}')"
+            >
+              {{contact.first_name}}
+            </button>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('body', '{{contact.name}}')"
+            >
+              {{contact.name}}
+            </button>
+          </div>
         </div>
 
         <div>
@@ -156,6 +219,105 @@ const updateButtonTitle = (index, title) => {
               >
                 <Icon icon="i-lucide-trash-2" class="size-3.5" />
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuração por Tipo: Lista Interativa WhatsApp -->
+      <div v-if="node.type === 'interactive_list'" class="flex flex-col gap-3">
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Pergunta / Cabeçalho da Lista *
+          </label>
+          <textarea
+            :value="nodeData.body || ''"
+            rows="3"
+            placeholder="Ex: Por favor, escolha como posso te ajudar hoje:"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
+            @input="updateData('body', $event.target.value)"
+          />
+          <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <span class="text-[10px] text-n-slate-10">Inserir:</span>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('body', '{{contact.first_name}}')"
+            >
+              {{contact.first_name}}
+            </button>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('body', '{{contact.name}}')"
+            >
+              {{contact.name}}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Texto do Botão de Abertura (no chat)
+          </label>
+          <input
+            :value="nodeData.button_text || 'Escolha uma opção'"
+            type="text"
+            placeholder="Ex: Escolha uma opção"
+            maxlength="20"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @input="updateData('button_text', $event.target.value)"
+          />
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-medium text-n-slate-11">
+              Opções do Menu (máx. 10)
+            </label>
+            <button
+              v-if="(nodeData.items?.length || 0) < 10"
+              type="button"
+              class="text-xs text-n-brand hover:underline font-medium"
+              @click="addItem"
+            >
+              + Adicionar Opção
+            </button>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <div
+              v-for="(item, index) in nodeData.items || []"
+              :key="item.id"
+              class="p-2.5 rounded-lg border border-n-strong bg-n-solid-2 flex flex-col gap-2 relative group"
+            >
+              <div class="flex items-center gap-2">
+                <input
+                  :value="item.title"
+                  type="text"
+                  placeholder="Título (Ex: Compras e Orçamentos)"
+                  maxlength="24"
+                  class="flex-1 px-2.5 py-1 text-xs rounded border border-n-strong bg-n-solid-1 text-n-slate-12 outline-none focus:border-n-brand font-medium"
+                  @input="updateItemField(index, 'title', $event.target.value)"
+                />
+                <button
+                  type="button"
+                  class="text-n-slate-9 hover:text-rose-500 p-1"
+                  title="Remover opção"
+                  @click="removeItem(index)"
+                >
+                  <Icon icon="i-lucide-trash-2" class="size-3.5" />
+                </button>
+              </div>
+
+              <input
+                :value="item.description || ''"
+                type="text"
+                placeholder="Descrição (Ex: Fazer compras, cotações e orçamentos)"
+                maxlength="72"
+                class="w-full px-2.5 py-1 text-[11px] rounded border border-n-strong bg-n-solid-1 text-n-slate-11 outline-none focus:border-n-brand"
+                @input="updateItemField(index, 'description', $event.target.value)"
+              />
             </div>
           </div>
         </div>

@@ -28,6 +28,16 @@ const messages = ref([]);
 const currentNodeId = ref(null);
 const userInput = ref('');
 const isSimulating = ref(false);
+const activeListModal = ref(null);
+
+const interpolate = text => {
+  if (!text) return '';
+  return text
+    .replaceAll('{{contact.first_name}}', 'Gihovani')
+    .replaceAll('{{contact.name}}', 'Gihovani Demetrio')
+    .replaceAll('{{contact.phone_number}}', '+55 (48) 99999-9999')
+    .replaceAll('{{account.name}}', 'Dental Speed');
+};
 
 const startNode = computed(() => {
   return props.nodes.find(n => n.type === 'start' || n.id === 'start') || props.nodes[0];
@@ -36,6 +46,7 @@ const startNode = computed(() => {
 const resetSimulation = () => {
   messages.value = [];
   userInput.value = '';
+  activeListModal.value = null;
   if (!startNode.value) return;
 
   currentNodeId.value = startNode.value.id;
@@ -65,23 +76,26 @@ const processNode = node => {
   setTimeout(() => {
     switch (node.type) {
       case 'start': {
-        const text = node.data?.text || 'Olá! Bem-vindo ao atendimento automatizado.';
+        const text = interpolate(node.data?.text || 'Olá! Bem-vindo ao atendimento automatizado.');
         addBotMessage(text);
         advanceToNext(node.id);
         break;
       }
       case 'message': {
-        addBotMessage(node.data?.text || 'Mensagem do atendente');
+        addBotMessage(interpolate(node.data?.text || 'Mensagem do atendente'));
         advanceToNext(node.id);
         break;
       }
       case 'interactive_buttons': {
-        addBotInteractiveMessage(node.data?.body || 'Escolha uma opção:', node.data?.buttons || []);
+        const bodyText = interpolate(node.data?.body || 'Escolha uma opção:');
+        addBotInteractiveMessage(bodyText, node.data?.buttons || []);
         isSimulating.value = false;
         break;
       }
       case 'interactive_list': {
-        addBotMessage(`${node.data?.body || 'Selecione uma opção da lista'}`);
+        const bodyText = interpolate(node.data?.body || 'Por favor, escolha como posso te ajudar hoje:');
+        const buttonText = node.data?.button_text || 'Escolha uma opção';
+        addBotListMessage(bodyText, buttonText, node.data?.items || []);
         isSimulating.value = false;
         break;
       }
@@ -159,6 +173,36 @@ const addBotInteractiveMessage = (text, buttons) => {
     buttons,
     time: formatTime(),
   });
+};
+
+const addBotListMessage = (text, buttonText, items) => {
+  messages.value.push({
+    id: `m_${Date.now()}_${Math.random()}`,
+    sender: 'bot',
+    text,
+    button_text: buttonText,
+    list_items: items,
+    time: formatTime(),
+  });
+};
+
+const openListModal = msg => {
+  activeListModal.value = {
+    title: msg.button_text || 'Escolha uma opção',
+    items: msg.list_items || [],
+  };
+};
+
+const selectListItem = item => {
+  activeListModal.value = null;
+  addUserMessage(item.title);
+
+  const nextNodes = getNextNodes(currentNodeId.value);
+  if (nextNodes.length > 0) {
+    const nextNode = nextNodes[0];
+    currentNodeId.value = nextNode.id;
+    processNode(nextNode);
+  }
 };
 
 const addUserMessage = text => {
@@ -303,6 +347,19 @@ const formatTime = () => {
                 </button>
               </div>
 
+              <!-- Botão de Lista Interativa (Menu de Opções) -->
+              <div v-if="msg.list_items?.length" class="flex flex-col gap-1 pt-1 border-t border-[#2a3942]">
+                <button
+                  type="button"
+                  class="w-full py-2 px-3 rounded flex items-center justify-center gap-1.5 text-xs font-medium text-emerald-400 bg-[#111b21] hover:bg-[#182229] transition-colors border border-[#2a3942]"
+                  :disabled="isSimulating"
+                  @click="openListModal(msg)"
+                >
+                  <Icon icon="i-lucide-menu" class="size-3.5" />
+                  <span>{{ msg.button_text || 'Escolha uma opção' }}</span>
+                </button>
+              </div>
+
               <span class="text-[9px] text-slate-400 self-end mt-0.5">{{ msg.time }}</span>
             </div>
 
@@ -338,6 +395,46 @@ const formatTime = () => {
           >
             <Icon icon="i-lucide-send" class="size-3.5" />
           </button>
+        </div>
+
+        <!-- Modal da Lista Interativa WhatsApp (idêntico ao print do usuário) -->
+        <div
+          v-if="activeListModal"
+          class="absolute inset-0 z-30 bg-black/75 backdrop-blur-xs flex flex-col justify-end"
+        >
+          <div class="bg-[#111b21] border-t border-[#2a3942] rounded-t-2xl p-4 flex flex-col max-h-[85%] shadow-2xl">
+            <div class="flex items-center justify-between pb-3 border-b border-[#2a3942]">
+              <h4 class="text-sm font-semibold text-white">{{ activeListModal.title }}</h4>
+              <button
+                type="button"
+                class="text-slate-400 hover:text-white p-1"
+                @click="activeListModal = null"
+              >
+                <Icon icon="i-lucide-x" class="size-4" />
+              </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto py-2 flex flex-col divide-y divide-[#2a3942]/50">
+              <button
+                v-for="item in activeListModal.items"
+                :key="item.id"
+                type="button"
+                class="py-3 px-1 text-left flex flex-col gap-0.5 hover:bg-[#202c33]/60 rounded transition-colors group"
+                @click="selectListItem(item)"
+              >
+                <span class="text-xs font-semibold text-white group-hover:text-emerald-400 transition-colors">
+                  {{ item.title }}
+                </span>
+                <span v-if="item.description" class="text-[11px] text-slate-400 leading-snug">
+                  {{ item.description }}
+                </span>
+              </button>
+            </div>
+
+            <div class="pt-2 text-center text-[10px] text-slate-400 border-t border-[#2a3942]">
+              Clique em um item para selecioná-lo.
+            </div>
+          </div>
         </div>
       </div>
     </div>
