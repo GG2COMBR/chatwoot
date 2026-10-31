@@ -282,7 +282,7 @@ const formatDate = dateString => {
               <Button
                 label="Editar Canvas"
                 icon="i-lucide-edit-3"
-                variant="faint"
+                variant="faded"
                 size="sm"
                 @click="editFlow(flow.id)"
               />
@@ -358,7 +358,7 @@ const formatDate = dateString => {
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-n-strong">
             <Button
               label="Cancelar"
-              variant="faint"
+              variant="faded"
               size="sm"
               @click="closeCreateModal"
             />
