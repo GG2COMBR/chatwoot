@@ -5,15 +5,21 @@
 Para proporcionar uma experiência profissional e evitar que o cliente precise digitar números em menus de texto:
 
 ### A. Quick Reply Buttons (Até 3 Opções)
-- Renderizadas nativamente pelo WhatsApp como botões de toque rápido.
-- Utilizadas para confirmações simples (ex: `[Sim, quero comprar]`, `[Não, obrigado]`, `[Falar com Atendente]`).
+- Renderizadas nativamente pelo WhatsApp como botões de toque rápido (`interactive.button`).
+- Limite de caracteres: 20 caracteres por título de botão (truncamento seguro automático).
+- Utilizadas para confirmações simples (ex: `[🛍️ Quero Comprar]`, `[🛠️ SAC]`, `[👤 Atendente]`).
 
 ### B. Interactive Lists (4 a 10 Opções)
-- Renderizadas como um menu expansível com título de seção e descrição.
+- Renderizadas como um menu expansível com título de seção e descrição (`interactive.list`).
+- Limite de caracteres: 24 caracteres por título de linha e 72 caracteres por descrição.
 - Utilizadas para categorias de produtos, menus principais e seleções de departamentos.
 
 ### C. Fallback Automático para Texto
-- Caso a mensagem seja disparada em um canal web widget ou SMS (que não suportam botões nativos da Meta), o serviço `Custom::Flows::InteractiveMessageService` converte automaticamente a lista de botões em um menu de texto numerado amigável.
+- Caso a mensagem seja disparada em um canal web widget ou SMS (que não suportam botões nativos da Meta), o serviço `Custom::Flows::InteractiveMessageService` converte automaticamente a lista de botões em um menu de texto numerado amigável (`1. Opção A\n2. Opção B`).
+- Invocação unificada:
+  ```ruby
+  Custom::Flows::InteractiveMessageService.dispatch!(conversation, text, options)
+  ```
 
 ---
 
