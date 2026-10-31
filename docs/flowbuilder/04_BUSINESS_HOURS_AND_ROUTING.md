@@ -42,3 +42,18 @@ Clientes com perfis diferentes recebem tratamento e horários diferenciados:
    - **Clientes VIP**: Direcionados para a equipe comercial VIP (expediente estendido até 20h e sábados).
    - **Clientes Padrão**: Direcionados para a equipe de atendimento geral (08h às 18h).
    - **Cobrança / Financeiro**: Direcionados para a equipe financeira.
+
+---
+
+## 5. Seed Idempotente de Demonstração GG2 (`rake custom:seed`)
+
+Para viabilizar homologação imediata e testes do Flowbuilder:
+
+- **Comando**: `docker compose exec rails bundle exec rake custom:seed`
+- **Serviço**: `Custom::SeedService.perform!`
+- **Estruturas Criadas de Forma Idempotente**:
+  - **Conta**: `GG2 Tecnologia` (ID mantido sem duplicação).
+  - **Usuários**: `admin@gg2.com.br` (Administrador), `vendas@gg2.com.br` (Agente), `sac@gg2.com.br` (Agente).
+  - **Equipes**: `Equipe Vendas`, `Equipe SAC` e `Equipe VIP` (auto-atribuição habilitada).
+  - **Caixa de Entrada**: `WhatsApp Oficial GG2` associada ao canal mock de WhatsApp com grade de atendimento semanal ativa (Seg-Sex 08:00-18:00, Sáb-Dom fechado).
+  - **Fluxo Visual Demonstrativo**: `Fluxo Geral de Atendimento GG2` em `custom_flows` com status `published`, integrando nós interativos de botões (Vendas, SAC, Falar com Atendente) e nó de IA Bedrock (`amazon.nova-lite-v1:0`).
