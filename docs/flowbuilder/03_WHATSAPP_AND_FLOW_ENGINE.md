@@ -59,3 +59,18 @@ Para eliminar qualquer concorrência entre robôs e atendentes humanos:
 
 ### C. Reabertura por Cliente (`ensure_pending_state_on_reopen`)
 - Se uma conversa resolvida (`resolved`) ou suspensa (`snoozed`) for reaberta por uma mensagem do cliente sem atendente atribuído, o status é alterado/mantido como `pending`, permitindo o início ordenado de uma nova sessão na URA sem poluir as caixas dos atendentes humanos até o handoff.
+
+---
+
+## 5. Motor de Execução de Grafo & Transições (`Custom::Flows::ExecutionEngine`)
+
+Responsável pela interpretação do snapshot do fluxo e avanço do ponteiro da sessão conversacional:
+
+- **Localização**: `custom/app/services/custom/flows/execution_engine.rb`.
+- **Invocação**: `Custom::Flows::ExecutionEngine.process!(session, input_data)`.
+- **Regras de Transição**:
+  1. **Nó Inicial**: Se `current_node_id` for nulo, localiza o nó raiz (sem arestas de entrada ou do tipo `start`) e o executa.
+  2. **Arestas Específicas**: Compara `button_id`, texto exato (`value`) ou palavras-chave (`keyword`).
+  3. **Aresta Padrão (Fallback)**: Caso nenhuma condição específica case com a entrada, segue pela aresta padrão (`default: true`).
+  4. **Retentativas e Fuga**: Se nenhuma aresta casar, contabiliza retentativas no contexto e, após 2 falhas, ramifica automaticamente para o nó `ai_fallback`.
+- **Mapeamento de Ações**: Dispara handlers especializados para cada tipo de nó (`message`, `interactive_buttons`, `interactive_list`, `team_assignment`, `ai_fallback`, `finish`).
