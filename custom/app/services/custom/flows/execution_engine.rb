@@ -113,8 +113,26 @@ class Custom::Flows::ExecutionEngine
   end
 
   def execute_node(node)
-    handler = handler_for(node[:type])
-    handler.call(session, node, input_data)
+    handler = node_handlers[node[:type].to_s]
+    send(handler, session, node) if handler
+  end
+
+  def node_handlers
+    {
+      'message' => :dispatch_simple_message,
+      'interactive_buttons' => :dispatch_interactive,
+      'interactive_list' => :dispatch_interactive,
+      'team_assignment' => :dispatch_team_assignment,
+      'business_hours' => :evaluate_business_hours_node,
+      'async_action' => :dispatch_async_action,
+      'ai_fallback' => :dispatch_ai_fallback,
+      'ai_agent' => :dispatch_ai_fallback,
+      'finish' => :finish_node
+    }
+  end
+
+  def finish_node(session, _node)
+    session.update!(status: :completed)
   end
 
   def handle_unmatched_transition(current_node)
@@ -130,21 +148,6 @@ class Custom::Flows::ExecutionEngine
       # Re-execute current node to prompt user again
       execute_node(current_node)
     end
-  end
-
-  def handler_for(node_type)
-    registry = {
-      'message' => ->(s, n, _inp) { dispatch_simple_message(s, n) },
-      'interactive_buttons' => ->(s, n, _inp) { dispatch_interactive(s, n) },
-      'interactive_list' => ->(s, n, _inp) { dispatch_interactive(s, n) },
-      'team_assignment' => ->(s, n, _inp) { dispatch_team_assignment(s, n) },
-      'business_hours' => ->(s, n, _inp) { evaluate_business_hours_node(s, n) },
-      'async_action' => ->(s, n, _inp) { dispatch_async_action(s, n) },
-      'ai_fallback' => ->(s, _n, _inp) { s.update_context(ai_routed: true) },
-      'finish' => ->(s, _n, _inp) { s.update!(status: :completed) }
-    }
-
-    registry[node_type.to_s] || ->(_s, _n, _inp) { true }
   end
 
   def dispatch_team_assignment(session, node)
@@ -170,15 +173,8 @@ class Custom::Flows::ExecutionEngine
                    node.dig(:data, :feedback_message) ||
                    '⏳ Aguarde um instante enquanto consultamos seus dados...'
 
-    if session.conversation && wait_message.present?
-      session.conversation.messages.create!(
-        account_id: session.account_id,
-        inbox_id: session.conversation.inbox_id,
-        message_type: :outgoing,
-        content: wait_message
-      )
-      session.update_context(last_wait_message: wait_message)
-    end
+    session.update_context(last_wait_message: wait_message)
+    create_outgoing_message(wait_message)
 
     Custom::Flows::AsyncActionJob.perform_later(session.id, node[:id], node[:data] || {})
   end
@@ -186,14 +182,7 @@ class Custom::Flows::ExecutionEngine
   def dispatch_simple_message(session, node)
     msg_text = node.dig(:data, :text)
     session.update_context(last_message_sent: msg_text)
-    return unless session.conversation && msg_text.present?
-
-    session.conversation.messages.create!(
-      account_id: session.account_id,
-      inbox_id: session.conversation.inbox_id,
-      message_type: :outgoing,
-      content: msg_text
-    )
+    create_outgoing_message(msg_text)
   end
 
   def dispatch_interactive(session, node)
@@ -203,5 +192,33 @@ class Custom::Flows::ExecutionEngine
     return unless session.conversation && text.present?
 
     Custom::Flows::InteractiveMessageService.dispatch!(session.conversation, text, options)
+  end
+
+  def dispatch_ai_fallback(session, node)
+    prompt = input_data[:content] || session.context&.dig('last_unmatched_input')
+    node_data = node[:data] || {}
+
+    result = Custom::Ai::BedrockService.chat(prompt, node_data)
+    ai_text = result[:content]
+
+    session.update_context(
+      ai_routed: true,
+      ai_result: result,
+      last_ai_query: prompt,
+      last_ai_response: ai_text
+    )
+
+    create_outgoing_message(ai_text)
+  end
+
+  def create_outgoing_message(content)
+    return unless session.conversation && content.present?
+
+    session.conversation.messages.create!(
+      account_id: session.account_id,
+      inbox_id: session.conversation.inbox_id,
+      message_type: :outgoing,
+      content: content
+    )
   end
 end
