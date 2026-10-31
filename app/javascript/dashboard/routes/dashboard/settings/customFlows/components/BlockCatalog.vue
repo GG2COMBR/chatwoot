@@ -30,6 +30,25 @@ const availableBlocks = [
     },
   },
   {
+    type: 'interactive_list',
+    label: 'Lista de Opções WhatsApp',
+    icon: 'i-lucide-list-filter',
+    color: 'hover:border-emerald-500/50 hover:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400',
+    defaultData: {
+      label: 'Lista de Opções WhatsApp',
+      body: 'Por favor, escolha como posso te ajudar hoje:',
+      button_text: 'Escolha uma opção',
+      items: [
+        { id: 'compras', title: 'Compras e Orçamentos', description: 'Fazer compras, cotações e orçamentos' },
+        { id: 'duvida_produto', title: 'Dúvida técnica - Produto', description: 'Informações técnicas do produto' },
+        { id: 'pedidos_suporte', title: 'Meus Pedidos e Suporte', description: 'Acompanhar pedido, 2ª via, notas fiscais, trocas' },
+        { id: 'acesso_cadastro', title: 'Acesso e Cadastro', description: 'Atualizar e-mail, telefone, token ou dados' },
+        { id: 'politica_seguranca', title: 'Política e Segurança', description: 'Conhecer nossas políticas de privacidade' },
+        { id: 'encerrar', title: 'Encerrar Atendimento', description: 'Finalizar o chat e encerrar o atendimento' },
+      ],
+    },
+  },
+  {
     type: 'business_hours',
     label: 'Horário de Atendimento',
     icon: 'i-lucide-clock',

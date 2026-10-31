@@ -37,7 +37,8 @@ module Custom::Flows::NodeHandlers
   end
 
   def dispatch_interactive(session, node)
-    text = node.dig(:data, :text)
+    raw_text = node.dig(:data, :text) || node.dig(:data, :body)
+    text = interpolate_variables(raw_text)
     options = node.dig(:data, :buttons) || node.dig(:data, :items) || []
     session.update_context(last_prompt: text)
     return unless session.conversation && text.present?
@@ -96,11 +97,33 @@ module Custom::Flows::NodeHandlers
   def create_outgoing_message(content)
     return unless session.conversation && content.present?
 
+    interpolated_content = interpolate_variables(content)
+
     session.conversation.messages.create!(
       account_id: session.account_id,
       inbox_id: session.conversation.inbox_id,
       message_type: :outgoing,
-      content: content
+      content: interpolated_content
     )
+  end
+
+  def interpolate_variables(text)
+    return text if text.blank? || session.conversation.blank?
+
+    contact = session.conversation.contact
+    contact_replacements(contact).reduce(text.to_s) do |result, (tag, val)|
+      result.gsub(tag, val)
+    end
+  end
+
+  def contact_replacements(contact)
+    full_name = contact&.name.presence || 'Cliente'
+    {
+      '{{contact.name}}' => full_name,
+      '{{contact.first_name}}' => full_name.split(/\s+/).first || 'Cliente',
+      '{{contact.email}}' => contact&.email.to_s,
+      '{{contact.phone_number}}' => contact&.phone_number.to_s,
+      '{{account.name}}' => session.account&.name.to_s
+    }
   end
 end
