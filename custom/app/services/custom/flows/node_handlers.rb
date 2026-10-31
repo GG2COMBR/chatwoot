@@ -70,6 +70,14 @@ module Custom::Flows::NodeHandlers
     create_outgoing_message(handoff_msg)
   end
 
+  def dispatch_kanban_stage_change(session, node)
+    stage_id = node.dig(:data, :stage_id) || node.dig(:data, :stage)
+    stage_name = node.dig(:data, :stage_name)
+
+    result = Custom::Kanban::StageService.transition!(session.conversation, session, stage_id, stage_name)
+    session.update_context(last_kanban_transition: result)
+  end
+
   def finish_node(session, node)
     msg = node.dig(:data, :text) || node.dig(:data, :farewell_message)
     create_outgoing_message(msg) if msg.present?
