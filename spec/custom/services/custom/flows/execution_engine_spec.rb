@@ -251,5 +251,32 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(conversation.reload.custom_attributes['kanban_stage_id']).to eq('lead_qualificado')
       expect(kanban_session.reload.context['last_kanban_transition']['status']).to eq('success')
     end
+
+    it 'interpolates {{contact.name}} and {{contact.first_name}} in messages' do
+      conversation.contact.update!(name: 'Gihovani Demetrio')
+      flow.update!(
+        nodes: [
+          {
+            id: 'node_msg',
+            type: 'message',
+            data: { text: 'Olá, {{contact.first_name}}! Bem-vindo {{contact.name}}!' }
+          }
+        ],
+        edges: []
+      )
+      interpol_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: flow,
+        conversation: conversation,
+        status: :active
+      )
+
+      expect do
+        described_class.process!(interpol_session)
+      end.to change(conversation.messages, :count).by(1)
+
+      last_message = conversation.messages.last
+      expect(last_message.content).to eq('Olá, Gihovani! Bem-vindo Gihovani Demetrio!')
+    end
   end
 end
