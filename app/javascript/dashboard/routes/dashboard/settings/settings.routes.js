@@ -27,6 +27,7 @@ import profile from './profile/profile.routes';
 import security from './security/security.routes';
 import conversationWorkflow from './conversationWorkflow/conversationWorkflow.routes';
 import captain from './captain/captain.routes';
+import customFlows from './customFlows/customFlows.routes';
 import data from './data/data.routes';
 
 export default {
@@ -57,6 +58,7 @@ export default {
     ...auditlogs.routes,
     ...billing.routes,
     ...canned.routes,
+    ...customFlows.routes,
     ...inbox.routes,
     ...templates.routes,
     ...integrations.routes,
