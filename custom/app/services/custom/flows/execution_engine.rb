@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Custom::Flows::ExecutionEngine
+  include Custom::Flows::NodeHandlers
+
   class FlowExecutionError < StandardError; end
 
   attr_reader :session, :input_data
@@ -18,12 +20,7 @@ class Custom::Flows::ExecutionEngine
     return session unless session.active?
     return session if nodes.empty?
 
-    if session.current_node_id.blank?
-      start_flow!
-    else
-      advance_flow!
-    end
-
+    session.current_node_id.blank? ? start_flow! : advance_flow!
     session.save!
     session
   end
@@ -53,6 +50,7 @@ class Custom::Flows::ExecutionEngine
     next_node = find_next_node(current_node[:id])
 
     if next_node
+      session.update_context(retries: 0)
       session.current_node_id = next_node[:id]
       execute_node(next_node)
     else
@@ -103,105 +101,73 @@ class Custom::Flows::ExecutionEngine
   def value_matches?(expected)
     expected.present? && expected.to_s.casecmp(input_data[:content].to_s.strip).zero?
   end
-
-  def status_matches?(expected)
-    expected.present? && expected.to_s.casecmp(input_data[:content].to_s.strip).zero?
-  end
+  alias status_matches? value_matches?
 
   def keyword_matches?(expected)
     expected.present? && input_data[:content].to_s.downcase.include?(expected.to_s.downcase)
   end
 
   def execute_node(node)
-    handler = handler_for(node[:type])
-    handler.call(session, node, input_data)
+    handler = node_handlers[node[:type].to_s]
+    send(handler, session, node) if handler
+    schedule_inactivity_monitor(node)
+  end
+
+  def schedule_inactivity_monitor(node)
+    return unless session.active?
+    return if %w[finish team_assignment].include?(node[:type].to_s)
+
+    Custom::Flows::InactivityJob.schedule_for(session, node)
+  end
+
+  def node_handlers
+    {
+      'message' => :dispatch_simple_message,
+      'interactive_buttons' => :dispatch_interactive,
+      'interactive_list' => :dispatch_interactive,
+      'team_assignment' => :dispatch_team_assignment,
+      'business_hours' => :evaluate_business_hours_node,
+      'async_action' => :dispatch_async_action,
+      'ai_fallback' => :dispatch_ai_fallback,
+      'ai_agent' => :dispatch_ai_fallback,
+      'finish' => :finish_node
+    }
   end
 
   def handle_unmatched_transition(current_node)
     retries = (session.context&.dig('retries') || 0) + 1
+    max_retries = (current_node.dig(:data, :max_retries) || 2).to_i
     session.update_context(retries: retries, last_unmatched_input: input_data[:content])
 
-    # If an ai_fallback node is connected or available, route to it on multiple retries
-    ai_node = nodes.find { |n| n[:type] == 'ai_fallback' }
-    if ai_node && retries >= 2
-      session.current_node_id = ai_node[:id]
-      execute_node(ai_node)
+    if retries >= max_retries
+      route_escape_path!(current_node)
     else
-      # Re-execute current node to prompt user again
-      execute_node(current_node)
+      re_prompt_current_node!(current_node)
     end
   end
 
-  def handler_for(node_type)
-    registry = {
-      'message' => ->(s, n, _inp) { dispatch_simple_message(s, n) },
-      'interactive_buttons' => ->(s, n, _inp) { dispatch_interactive(s, n) },
-      'interactive_list' => ->(s, n, _inp) { dispatch_interactive(s, n) },
-      'team_assignment' => ->(s, n, _inp) { dispatch_team_assignment(s, n) },
-      'business_hours' => ->(s, n, _inp) { evaluate_business_hours_node(s, n) },
-      'async_action' => ->(s, n, _inp) { dispatch_async_action(s, n) },
-      'ai_fallback' => ->(s, _n, _inp) { s.update_context(ai_routed: true) },
-      'finish' => ->(s, _n, _inp) { s.update!(status: :completed) }
-    }
-
-    registry[node_type.to_s] || ->(_s, _n, _inp) { true }
-  end
-
-  def dispatch_team_assignment(session, node)
-    team_name = node.dig(:data, :team_name)
-    team = session.account.teams.where('lower(name) = ?', team_name.to_s.downcase).first if team_name.present?
-
-    config = node[:data] || {}
-    result = Custom::Flows::ScheduleEvaluatorService.route_and_handoff!(session.conversation, team, config)
-    session.update!(status: :handoff)
-    session.update_context(handoff_result: result)
-  end
-
-  def evaluate_business_hours_node(session, node)
-    is_open = Custom::Flows::ScheduleEvaluatorService.open_now?(
-      node[:data] || session.conversation.inbox,
-      timezone: node.dig(:data, :timezone) || 'America/Sao_Paulo'
-    )
-    session.update_context(business_hours_open: is_open)
-  end
-
-  def dispatch_async_action(session, node)
-    wait_message = node.dig(:data, :wait_message) ||
-                   node.dig(:data, :feedback_message) ||
-                   '⏳ Aguarde um instante enquanto consultamos seus dados...'
-
-    if session.conversation && wait_message.present?
-      session.conversation.messages.create!(
-        account_id: session.account_id,
-        inbox_id: session.conversation.inbox_id,
-        message_type: :outgoing,
-        content: wait_message
-      )
-      session.update_context(last_wait_message: wait_message)
+  def route_escape_path!(current_node)
+    escape_node = find_escape_node(current_node)
+    if escape_node
+      session.current_node_id = escape_node[:id]
+      execute_node(escape_node)
+    else
+      trigger_human_handoff(session, current_node, 'max_retries_exceeded')
     end
-
-    Custom::Flows::AsyncActionJob.perform_later(session.id, node[:id], node[:data] || {})
   end
 
-  def dispatch_simple_message(session, node)
-    msg_text = node.dig(:data, :text)
-    session.update_context(last_message_sent: msg_text)
-    return unless session.conversation && msg_text.present?
+  def find_escape_node(current_node)
+    escape_edge = edges.select { |e| e[:source] == current_node[:id] }.find do |e|
+      e.dig(:condition, :fallback) == true || e.dig(:condition, :on_error) == true
+    end
+    return find_node(escape_edge[:target]) if escape_edge
 
-    session.conversation.messages.create!(
-      account_id: session.account_id,
-      inbox_id: session.conversation.inbox_id,
-      message_type: :outgoing,
-      content: msg_text
-    )
+    nodes.find { |n| n[:type] == 'ai_fallback' || n[:type] == 'ai_agent' }
   end
 
-  def dispatch_interactive(session, node)
-    text = node.dig(:data, :text)
-    options = node.dig(:data, :buttons) || node.dig(:data, :items) || []
-    session.update_context(last_prompt: text)
-    return unless session.conversation && text.present?
-
-    Custom::Flows::InteractiveMessageService.dispatch!(session.conversation, text, options)
+  def re_prompt_current_node!(current_node)
+    msg = current_node.dig(:data, :retry_message)
+    create_outgoing_message(msg) if msg.present?
+    execute_node(current_node)
   end
 end

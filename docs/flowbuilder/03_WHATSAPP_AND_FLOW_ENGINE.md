@@ -60,16 +60,55 @@ Permite desenvolvimento, testes automatizados e validações de negócios com ze
 
 ---
 
-## 3. Fallback Contextual com AWS Bedrock
+## 3. Fallback Contextual com AWS Bedrock (`Custom::Ai::BedrockService`)
 
-Quando o cliente digita uma dúvida que não corresponde a nenhuma das opções do menu:
+Quando o cliente digita uma dúvida que não corresponde a nenhuma das opções do menu ou após retentativas inválidas:
 
 1. **Nó `ai_fallback` / `ai_agent`**:
-   - Invoca a Converse API do AWS Bedrock (`amazon.nova-lite-v1:0` ou `anthropic.claude-3-5-haiku`).
-   - Fornece o System Prompt com as diretrizes da empresa e o histórico recente da conversa.
+   - Invoca o serviço `Custom::Ai::BedrockService.chat(prompt, options)`.
+   - Utiliza nativamente a gem `RubyLLM` com suporte a AWS Bedrock Converse API (`amazon.nova-lite-v1:0` por padrão ou `anthropic.claude-3-5-haiku`).
+   - Carrega as credenciais via `CAPTAIN_BEDROCK_ACCESS_KEY_ID`, `CAPTAIN_BEDROCK_SECRET_ACCESS_KEY` e região `CAPTAIN_BEDROCK_REGION` (`us-east-1`).
 2. **Respostas com Limite de Tokens e Salvaguardas**:
-   - Respostas curtas, objetivas e com formatação compatível com WhatsApp (negrito `*`, quebra de linha).
-   - Se o cliente solicitar explicitamente falar com um atendente, o Bedrock ramifica para o nó de transbordo humano (`handoff`).
+   - Limite configurável de tokens (padrão: 300 tokens) e baixa temperatura (`temperature: 0.3`) para evitar alucinações.
+   - Formatação compatível com WhatsApp (sem blocos de código markdown desnecessários, negritos com `*` e quebras de linha limpas).
+   - Registra no contexto da sessão (`ai_result`, `last_ai_query`, `last_ai_response`).
+3. **Resiliência e Fallback Seguro**:
+   - Caso a API do Bedrock apresente indisponibilidade ou rate limit, o serviço captura a exceção de forma transparente e retorna resposta de contingência amigável informando a transferência para atendimento humano, sem quebrar o fluxo.
+
+---
+
+## 3.1. Detector de Intenção de Transbordo Humano (`Custom::Ai::HandoffDetectorService`)
+
+Garante que qualquer desejo expresso pelo cliente de falar com um atendente humano seja atendido imediatamente sem insistência de IA:
+
+- **Localização**: `custom/app/services/custom/ai/handoff_detector_service.rb`.
+- **Funcionamento**:
+  - Antes de despachar a mensagem para o LLM, o método `Custom::Ai::HandoffDetectorService.human_intent?(prompt)` inspeciona padrões semânticos e termos-chave (*"falar com atendente"*, *"atendente humano"*, *"pessoa real"*, *"suporte humano"*, *"operador"*).
+  - Caso detectado:
+    1. A chamada ao Bedrock é abortada imediatamente para economizar tokens e latência.
+    2. O motor aciona `trigger_human_handoff` direcionando a conversa para a equipe configurada (`node.dig(:data, :handoff_team)` ou equipe padrão `SAC`).
+    3. Atualiza o status da sessão para `handoff` e grava `handoff_reason: 'human_intent_detected'` no contexto.
+    4. Envia imediatamente a mensagem de confirmação de transferência para o cliente no WhatsApp.
+
+---
+
+## 3.2. Detector de Inatividade Atômico com Sidekiq (`Custom::Flows::InactivityJob`)
+
+Monitora sessões ativas para evitar abandono de carrinhos ou conversas congeladas na URA:
+
+- **Localização**: `custom/app/jobs/custom/flows/inactivity_job.rb`.
+- **Fila Sidekiq**: `:flows_processing`.
+- **Ciclo de Vida em 2 Estágios com Token Atômico**:
+  1. **Agendamento**: A cada nó executado no `ExecutionEngine` que aguarda resposta do cliente, gera-se um `inactivity_token` aleatório e o job é agendado (`wait: timeout.seconds`, padrão: 300s).
+  2. **Verificação com Mutex**: Ao despertar no Sidekiq, adquire lock distribuído no Redis (`session:<id>`). Se o cliente já tiver respondido (o nó atual avançou ou o token mudou), o job encerra silenciosamente como no-op.
+  3. **Estágio 1 - Aviso / Lembrete**: Caso o cliente continue inativo no mesmo nó, envia mensagem amigável de lembrete (*"Você ainda está aí? Posso continuar te ajudando?"*), marca `inactivity_warned: true` no contexto e agenda o estágio final.
+  4. **Estágio 2 - Encerramento Elegante & Resolução**:
+     - Se o cliente persistir sem responder após o segundo timeout, envia a mensagem de despedida (`farewell_message`).
+     - Se `send_csat: true` estiver ativo no nó, dispara pesquisa interativa de satisfação via botões nativos (`Custom::Flows::InteractiveMessageService`).
+     - Atualiza o status da sessão para `timed_out` gravando `expiration_reason: 'inactivity_timeout'`.
+     - Atualiza o status da conversa no Chatwoot para `resolved` (ou `snoozed`, caso configurado via `final_conversation_status: 'snoozed'`), evitando conversas zumbis na caixa de entrada dos atendentes.
+  5. **Conclusão Voluntária (`finish` Node)**:
+     - Quando o cliente conclui um fluxo de autoatendimento com sucesso, o nó `finish` dispara a mensagem de agradecimento, marca a sessão como `completed` com timestamp e transita a conversa no Chatwoot para `resolved`.
 
 ---
 
@@ -100,6 +139,13 @@ Responsável pela interpretação do snapshot do fluxo e avanço do ponteiro da 
 - **Regras de Transição**:
   1. **Nó Inicial**: Se `current_node_id` for nulo, localiza o nó raiz (sem arestas de entrada ou do tipo `start`) e o executa.
   2. **Arestas Específicas**: Compara `button_id`, texto exato (`value`) ou palavras-chave (`keyword`).
-  3. **Aresta Padrão (Fallback)**: Caso nenhuma condição específica case com a entrada, segue pela aresta padrão (`default: true`).
-  4. **Retentativas e Fuga**: Se nenhuma aresta casar, contabiliza retentativas no contexto e, após 2 falhas, ramifica automaticamente para o nó `ai_fallback`.
-- **Mapeamento de Ações**: Dispara handlers especializados para cada tipo de nó (`message`, `interactive_buttons`, `interactive_list`, `team_assignment`, `ai_fallback`, `finish`).
+  3. **Aresta Padrão (Default)**: Caso nenhuma condição específica case com a entrada e exista uma aresta com `default: true`, segue imediatamente por ela.
+  4. **Contador de Retentativas e Rota de Fuga**:
+     - Se nenhuma aresta casar, contabiliza retentativas no contexto (`retries`).
+     - Caso `retries < max_retries` (padrão: 2), reenvia o nó atual acompanhado da mensagem explicativa `retry_message` se configurada.
+     - Ao atingir `max_retries`, o motor não entra em loop infinito e aciona a rota de fuga na seguinte ordem de prioridade:
+       1. Aresta explícita de erro (`condition: { fallback: true }` ou `condition: { on_error: true }`).
+       2. Nó conectado de IA (`ai_fallback` / `ai_agent`).
+       3. Transbordo humano direto (`trigger_human_handoff` com equipe `SAC`).
+     - Quando o cliente insere uma opção válida posteriormente, o contador de retentativas é resetado para `0`.
+- **Mapeamento de Ações**: Dispara handlers especializados via `Custom::Flows::NodeHandlers` para cada tipo de nó (`message`, `interactive_buttons`, `interactive_list`, `team_assignment`, `async_action`, `ai_fallback`, `finish`).

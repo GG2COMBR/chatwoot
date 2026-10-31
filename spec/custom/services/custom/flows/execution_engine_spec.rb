@@ -67,13 +67,32 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(session.status).to eq('handoff')
     end
 
-    it 'falls back to default edge when input does not match specific conditions' do
+    it 'falls back to default edge and dispatches ai_fallback response' do
       session.update!(current_node_id: 'node_1')
 
-      described_class.process!(session, content: 'Quero tirar uma dúvida geral')
+      allow(Custom::Ai::BedrockService).to receive(:chat).and_return(
+        status: 'success',
+        content: 'Olá! Sou a IA da GG2. Como posso ajudar?'
+      )
+
+      expect do
+        described_class.process!(session, content: 'Quero tirar uma dúvida geral')
+      end.to change { conversation.messages.count }.by(1)
 
       expect(session.current_node_id).to eq('node_ai')
       expect(session.context['ai_routed']).to be true
+      expect(conversation.messages.last.content).to eq('Olá! Sou a IA da GG2. Como posso ajudar?')
+    end
+
+    it 'detects human attendant intent on ai node and transfers to human team immediately' do
+      session.update!(current_node_id: 'node_1')
+      expect(Custom::Ai::BedrockService).not_to receive(:chat)
+
+      described_class.process!(session, content: 'Quero falar com um atendente agora')
+
+      expect(session.current_node_id).to eq('node_ai')
+      expect(session.status).to eq('handoff')
+      expect(session.context['handoff_reason']).to eq('human_intent_detected')
     end
 
     it 'does not process when session is not active' do
@@ -118,6 +137,85 @@ RSpec.describe Custom::Flows::ExecutionEngine do
 
       expect(conversation.messages.last.content).to eq('⏳ Aguarde...')
       expect(async_session.current_node_id).to eq('node_async')
+    end
+
+    it 'tracks retry counts on unmatched input and routes to escape path when max_retries reached' do
+      escape_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Retry Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_menu',
+            type: 'interactive_buttons',
+            data: { text: 'Menu', max_retries: 2, retry_message: 'Opção inválida, tente novamente' }
+          },
+          {
+            id: 'node_escape',
+            type: 'team_assignment',
+            data: { team_name: 'Equipe SAC' }
+          }
+        ],
+        edges: [
+          { id: 'edge_esc', source: 'node_menu', target: 'node_escape', condition: { fallback: true } }
+        ]
+      )
+      retry_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: escape_flow,
+        conversation: conversation,
+        status: :active,
+        current_node_id: 'node_menu'
+      )
+
+      # Attempt 1: invalid input, retries becomes 1, re-prompts
+      described_class.process!(retry_session, content: 'opcao_invalida_1')
+      expect(retry_session.reload.context['retries']).to eq(1)
+      expect(retry_session.current_node_id).to eq('node_menu')
+
+      # Attempt 2: invalid input, reaches max_retries (2), routes to escape node
+      described_class.process!(retry_session, content: 'opcao_invalida_2')
+      expect(retry_session.reload.context['retries']).to eq(2)
+      expect(retry_session.current_node_id).to eq('node_escape')
+      expect(retry_session.status).to eq('handoff')
+    end
+
+    it 'resets retries counter to 0 upon successful edge transition' do
+      session.update!(current_node_id: 'node_1', context: { 'retries' => 1 })
+
+      described_class.process!(session, button_id: 'btn_vendas')
+
+      expect(session.reload.current_node_id).to eq('node_vendas')
+      expect(session.context['retries']).to eq(0)
+    end
+
+    it 'completes session and marks conversation resolved upon reaching finish node' do
+      finish_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Finish Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_end',
+            type: 'finish',
+            data: { farewell_message: 'Obrigado por falar conosco!', final_conversation_status: 'resolved' }
+          }
+        ],
+        edges: []
+      )
+      finish_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: finish_flow,
+        conversation: conversation,
+        status: :active
+      )
+
+      described_class.process!(finish_session)
+
+      expect(finish_session.reload.status).to eq('completed')
+      expect(finish_session.context['completed_at']).to be_present
+      expect(conversation.reload.status).to eq('resolved')
+      expect(conversation.messages.last.content).to eq('Obrigado por falar conosco!')
     end
   end
 end
