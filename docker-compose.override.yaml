@@ -1,0 +1,19 @@
+services:
+  postgres:
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  vite:
+    environment:
+      - VITE_RUBY_HOST=0.0.0.0
+      - NODE_OPTIONS=--max-old-space-size=4096
+      - DISABLE_TELEMETRY=true
+
+  rails:
+    environment:
+      - VITE_RUBY_HOST=vite
+      - DISABLE_TELEMETRY=true
+
+  sidekiq:
+    environment:
+      - DISABLE_TELEMETRY=true

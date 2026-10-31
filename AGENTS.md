@@ -137,3 +137,32 @@ Practical checklist for any change impacting core logic or public APIs
 ## Branding / White-labeling note
 
 - For user-facing strings that currently contain "Chatwoot" but should adapt to branded/self-hosted installs, prefer applying `replaceInstallationName` from `shared/composables/useBranding` in the UI layer (for example tooltip and suggestion labels) instead of adding hardcoded brand-specific copy.
+
+---
+
+# GG2 Chatwoot Flowbuilder — Diretrizes Canônicas do Projeto
+
+## 1. Topologia Git Flow & Nomenclatura Estrita
+- **Branch Base**: Todo desenvolvimento parte de `staging` (Homologação). NUNCA partir de `main`.
+- **Nomenclatura de Branches**: Formato estrito `<tipo>/<id>` (ex: `feat/1`, `fix/42`, `docs/governance`).
+  - Desenvolvedor backend e frontend trabalhando na mesma feature atuam sequencialmente (Backend cria contratos e models primeiro; Frontend consome depois).
+- **Destino dos Pull Requests**: 100% dos PRs de desenvolvimento devem apontar para `staging`.
+- **Produção e Releases**: A branch `main` é reservada para produção. Promoções ocorrem via PR `staging` ➔ `main` com tag SemVer (`vX.Y.Z`).
+- **Mergeback Mandatório**: Imediatamente após qualquer merge em `main` (seja release ou hotfix), executa-se o mergeback de `main` ➔ `staging` para evitar divergência de árvore.
+- **Merge Policies**: Proibido squash merge (`allow_squash_merge: false`). Utilizar Merge Commit (`--merge`). Exclusão automática de branches pós-merge ativada.
+
+## 2. Isolamento Canônico da Camada `custom/`
+- **Zero Modificação no Core**: É terminantemente PROIBIDO alterar arquivos sob as pastas nativas `app/`, `config/` ou `db/` para implementar o Flowbuilder.
+- **Autoload**: Todo o código proprietário deve residir em `custom/` e ser carregado pelo inicializador `config/initializers/00_custom_loader.rb` sob o namespace `Custom::`.
+- **Extensão de Models**: Utilizar exclusivamente `prepend_mod_with` ou `include_mod_with` para acoplar comportamentos em models nativos sem hard fork.
+
+## 3. Performance & Escala (300 Atendentes Concorrentes)
+- **Fila Sidekiq Isolada**: Todo o processamento de nós, URA e IA Bedrock roda exclusivamente na fila `:flows_processing`, protegendo a fila `:critical` dos atendentes humanos.
+- **Distributed Locks**: Toda mensagem recebida no WhatsApp deve adquirir mutex atômico no Redis (`flow_lock:<session_id>`, TTL 10s) para eliminar duplicidade de cliques.
+- **Nós Assíncronos**: Consultas a ERPs/APIs externas devem disparar imediatamente uma mensagem de feedback no WhatsApp (*"⏳ Aguarde um instante..."*) e processar em background via `AsyncActionJob`.
+
+## 4. Frontend & Usabilidade No-Code (Não-TI)
+- **Design System Nativo**: Utilizar exclusivamente Tailwind CSS e os componentes de `dashboard/components-next/`. Proibido adicionar bibliotecas pesadas de UI externas.
+- **Vue Flow Headless**: O `@vue-flow/core` é utilizado estritamente como motor de grafo headless. Todos os nós, formulários e painéis laterais utilizam o design nativo do Chatwoot.
+- **Linguagem Natural**: Todos os blocos visuais devem ter nomes amigáveis em português claro (*"💬 Enviar Mensagem"*, *"🔘 Pergunta com Botões"*, *"⏰ Horário de Atendimento"*, *"👤 Transferir para Equipe"*).
+

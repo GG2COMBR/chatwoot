@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'chatwoot-core-and-flows'
+    metrics_path: '/custom/metrics'
+    static_configs:
+      - targets: ['rails:3000', 'host.docker.internal:3000']

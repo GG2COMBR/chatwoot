@@ -1,0 +1,28 @@
+name: Auto Mergeback (main to staging)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  mergeback:
+    name: Sincronizar main ➔ staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: staging
+
+      - name: Git Config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge main into staging
+        run: |
+          git fetch origin main
+          git merge origin/main --no-ff -m "chore(git): mergeback main into staging [skip ci]"
+          git push origin staging
