@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_10_19_143116) do
+ActiveRecord::Schema[7.2].define(version: 2026_10_31_141212) do
   # These extensions should be enabled to support this database
   enable_extension "pg_stat_statements"
   enable_extension "pg_trgm"
@@ -521,8 +521,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_10_19_143116) do
     t.integer "status", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_captain_faq_suggestions_on_account_id"
     t.index ["account_id", "assistant_id", "status", "language"], name: "idx_cap_faq_suggestions_on_account_assistant_status_language"
+    t.index ["account_id"], name: "index_captain_faq_suggestions_on_account_id"
     t.index ["assistant_id"], name: "index_captain_faq_suggestions_on_assistant_id"
     t.index ["embedding"], name: "vector_idx_captain_faq_suggestions_embedding", opclass: :vector_cosine_ops, using: :ivfflat
   end
@@ -765,8 +765,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_10_19_143116) do
     t.jsonb "phone_number_health", default: {}, null: false
     t.datetime "phone_number_health_checked_at"
     t.string "phone_number_health_error", limit: 500
-    t.index ["phone_number_health_checked_at"], name: "index_channel_whatsapp_on_phone_number_health_checked_at"
     t.index ["phone_number"], name: "index_channel_whatsapp_on_phone_number", unique: true
+    t.index ["phone_number_health_checked_at"], name: "index_channel_whatsapp_on_phone_number_health_checked_at"
   end
 
   create_table "companies", force: :cascade do |t|
@@ -1102,7 +1102,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_10_19_143116) do
     t.index ["copilot_tool_call_id"], name: "index_copilot_runs_on_copilot_tool_call_id", unique: true
     t.index ["source_run_id"], name: "index_copilot_runs_on_source_run_id"
     t.index ["status"], name: "index_copilot_runs_awaiting_approval", where: "((status)::text = 'awaiting_approval'::text)"
-    t.index ["status"], name: "index_copilot_runs_claimable", where: "((status)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying])::text[]))"
+    t.index ["status"], name: "index_copilot_runs_claimable", where: "((status)::text = ANY (ARRAY[('queued'::character varying)::text, ('running'::character varying)::text]))"
     t.index ["user_id"], name: "index_copilot_runs_on_user_id"
   end
 
@@ -1181,6 +1181,40 @@ ActiveRecord::Schema[7.1].define(version: 2026_10_19_143116) do
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_custom_filters_on_account_id"
     t.index ["user_id"], name: "index_custom_filters_on_user_id"
+  end
+
+  create_table "custom_flow_sessions", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "custom_flow_id", null: false
+    t.bigint "conversation_id", null: false
+    t.integer "status", default: 0, null: false
+    t.string "current_node_id"
+    t.jsonb "flow_snapshot", default: {}, null: false
+    t.jsonb "context", default: {}, null: false
+    t.datetime "last_activity_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_custom_flow_sessions_on_account_id_and_status"
+    t.index ["account_id"], name: "index_custom_flow_sessions_on_account_id"
+    t.index ["conversation_id", "status"], name: "index_custom_flow_sessions_on_conversation_id_and_status"
+    t.index ["conversation_id"], name: "index_custom_flow_sessions_on_conversation_id"
+    t.index ["custom_flow_id"], name: "index_custom_flow_sessions_on_custom_flow_id"
+    t.index ["last_activity_at"], name: "index_custom_flow_sessions_on_last_activity_at"
+  end
+
+  create_table "custom_flows", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.integer "status", default: 0, null: false
+    t.string "trigger_type", default: "default", null: false
+    t.jsonb "trigger_config", default: {}, null: false
+    t.jsonb "nodes", default: [], null: false
+    t.jsonb "edges", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_custom_flows_on_account_id_and_status"
+    t.index ["account_id"], name: "index_custom_flows_on_account_id"
   end
 
   create_table "custom_roles", force: :cascade do |t|
@@ -1291,10 +1325,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_10_19_143116) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "inbox_id"
-    t.index ["account_id", "name", "template_type", "locale"], name: "index_email_templates_on_account_scope", unique: true, where: "(account_id IS NOT NULL) AND (inbox_id IS NULL)"
+    t.index ["account_id", "name", "template_type", "locale"], name: "index_email_templates_on_account_scope", unique: true, where: "((account_id IS NOT NULL) AND (inbox_id IS NULL))"
     t.index ["inbox_id", "name", "template_type", "locale"], name: "index_email_templates_on_inbox_scope", unique: true, where: "(inbox_id IS NOT NULL)"
     t.index ["inbox_id"], name: "index_email_templates_on_inbox_id"
-    t.index ["name", "template_type", "locale"], name: "index_email_templates_on_installation_scope", unique: true, where: "(account_id IS NULL) AND (inbox_id IS NULL)"
+    t.index ["name", "template_type", "locale"], name: "index_email_templates_on_installation_scope", unique: true, where: "((account_id IS NULL) AND (inbox_id IS NULL))"
   end
 
   create_table "folders", force: :cascade do |t|
