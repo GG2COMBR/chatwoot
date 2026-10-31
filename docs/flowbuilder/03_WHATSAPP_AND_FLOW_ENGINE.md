@@ -77,6 +77,21 @@ Quando o cliente digita uma dúvida que não corresponde a nenhuma das opções 
 
 ---
 
+## 3.1. Detector de Intenção de Transbordo Humano (`Custom::Ai::HandoffDetectorService`)
+
+Garante que qualquer desejo expresso pelo cliente de falar com um atendente humano seja atendido imediatamente sem insistência de IA:
+
+- **Localização**: `custom/app/services/custom/ai/handoff_detector_service.rb`.
+- **Funcionamento**:
+  - Antes de despachar a mensagem para o LLM, o método `Custom::Ai::HandoffDetectorService.human_intent?(prompt)` inspeciona padrões semânticos e termos-chave (*"falar com atendente"*, *"atendente humano"*, *"pessoa real"*, *"suporte humano"*, *"operador"*).
+  - Caso detectado:
+    1. A chamada ao Bedrock é abortada imediatamente para economizar tokens e latência.
+    2. O motor aciona `trigger_human_handoff` direcionando a conversa para a equipe configurada (`node.dig(:data, :handoff_team)` ou equipe padrão `SAC`).
+    3. Atualiza o status da sessão para `handoff` e grava `handoff_reason: 'human_intent_detected'` no contexto.
+    4. Envia imediatamente a mensagem de confirmação de transferência para o cliente no WhatsApp.
+
+---
+
 ## 4. Guarda Humano x Robô & Elegibilidade Estrita (`Custom::Flows::EligibilityService`)
 
 Para eliminar qualquer concorrência entre robôs e atendentes humanos:
