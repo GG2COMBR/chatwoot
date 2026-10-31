@@ -33,3 +33,10 @@ if Dir.exist?(custom_migrate_path)
   Rails.application.config.paths['db/migrate'] << custom_migrate_str unless Rails.application.config.paths['db/migrate'].include?(custom_migrate_str)
   ActiveRecord::Migrator.migrations_paths << custom_migrate_str unless ActiveRecord::Migrator.migrations_paths.include?(custom_migrate_str)
 end
+
+custom_initializers_path = Rails.root.join('custom/config/initializers')
+if Dir.exist?(custom_initializers_path)
+  Dir.glob(custom_initializers_path.join('*.rb')).each do |initializer|
+    load initializer
+  end
+end
