@@ -67,13 +67,21 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(session.status).to eq('handoff')
     end
 
-    it 'falls back to default edge when input does not match specific conditions' do
+    it 'falls back to default edge and dispatches ai_fallback response' do
       session.update!(current_node_id: 'node_1')
 
-      described_class.process!(session, content: 'Quero tirar uma dúvida geral')
+      allow(Custom::Ai::BedrockService).to receive(:chat).and_return(
+        status: 'success',
+        content: 'Olá! Sou a IA da GG2. Como posso ajudar?'
+      )
+
+      expect do
+        described_class.process!(session, content: 'Quero tirar uma dúvida geral')
+      end.to change { conversation.messages.count }.by(1)
 
       expect(session.current_node_id).to eq('node_ai')
       expect(session.context['ai_routed']).to be true
+      expect(conversation.messages.last.content).to eq('Olá! Sou a IA da GG2. Como posso ajudar?')
     end
 
     it 'does not process when session is not active' do

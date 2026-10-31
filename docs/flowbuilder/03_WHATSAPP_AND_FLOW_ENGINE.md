@@ -60,16 +60,20 @@ Permite desenvolvimento, testes automatizados e validações de negócios com ze
 
 ---
 
-## 3. Fallback Contextual com AWS Bedrock
+## 3. Fallback Contextual com AWS Bedrock (`Custom::Ai::BedrockService`)
 
-Quando o cliente digita uma dúvida que não corresponde a nenhuma das opções do menu:
+Quando o cliente digita uma dúvida que não corresponde a nenhuma das opções do menu ou após retentativas inválidas:
 
 1. **Nó `ai_fallback` / `ai_agent`**:
-   - Invoca a Converse API do AWS Bedrock (`amazon.nova-lite-v1:0` ou `anthropic.claude-3-5-haiku`).
-   - Fornece o System Prompt com as diretrizes da empresa e o histórico recente da conversa.
+   - Invoca o serviço `Custom::Ai::BedrockService.chat(prompt, options)`.
+   - Utiliza nativamente a gem `RubyLLM` com suporte a AWS Bedrock Converse API (`amazon.nova-lite-v1:0` por padrão ou `anthropic.claude-3-5-haiku`).
+   - Carrega as credenciais via `CAPTAIN_BEDROCK_ACCESS_KEY_ID`, `CAPTAIN_BEDROCK_SECRET_ACCESS_KEY` e região `CAPTAIN_BEDROCK_REGION` (`us-east-1`).
 2. **Respostas com Limite de Tokens e Salvaguardas**:
-   - Respostas curtas, objetivas e com formatação compatível com WhatsApp (negrito `*`, quebra de linha).
-   - Se o cliente solicitar explicitamente falar com um atendente, o Bedrock ramifica para o nó de transbordo humano (`handoff`).
+   - Limite configurável de tokens (padrão: 300 tokens) e baixa temperatura (`temperature: 0.3`) para evitar alucinações.
+   - Formatação compatível com WhatsApp (sem blocos de código markdown desnecessários, negritos com `*` e quebras de linha limpas).
+   - Registra no contexto da sessão (`ai_result`, `last_ai_query`, `last_ai_response`).
+3. **Resiliência e Fallback Seguro**:
+   - Caso a API do Bedrock apresente indisponibilidade ou rate limit, o serviço captura a exceção de forma transparente e retorna resposta de contingência amigável informando a transferência para atendimento humano, sem quebrar o fluxo.
 
 ---
 
