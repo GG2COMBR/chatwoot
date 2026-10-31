@@ -24,15 +24,15 @@ export default {
             permissions: ['administrator'],
           },
         },
-        {
-          path: ':flowId/edit',
-          name: 'custom_flows_edit',
-          component: CustomFlowsEditor,
-          meta: {
-            permissions: ['administrator'],
-          },
-        },
       ],
+    },
+    {
+      path: frontendURL('accounts/:accountId/settings/custom_flows/:flowId/edit'),
+      name: 'custom_flows_edit',
+      component: CustomFlowsEditor,
+      meta: {
+        permissions: ['administrator'],
+      },
     },
   ],
 };
