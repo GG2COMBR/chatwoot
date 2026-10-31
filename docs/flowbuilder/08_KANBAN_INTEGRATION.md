@@ -18,3 +18,26 @@ O módulo Kanban do Flowbuilder conecta a automação conversacional diretamente
   2. **Histórico de Estágios no Contexto JSONB**:
      - Registra em `session.context['stage_history']` a lista cronológica de estágios visitados pela conversa, viabilizando métricas de tempo de permanência (*dwell time*) e SLA do ciclo de vendas.
      - Atualiza `session.context['current_kanban_stage_id']`.
+
+---
+
+## 3. Broadcast em Tempo Real via ActionCable (Zero Polling)
+
+- **Canal ActionCable**: `account_<account_id>_kanban`
+- **Evento**: `kanban.stage_changed`
+- **Payload**:
+  ```json
+  {
+    "event": "kanban.stage_changed",
+    "data": {
+      "account_id": 1,
+      "conversation_id": 1234,
+      "stage_id": "lead_qualificado",
+      "stage_name": "Lead Qualificado",
+      "updated_at": "2026-10-31T12:00:00Z"
+    }
+  }
+  ```
+- **Comportamento no Frontend**:
+  - Os clientes e atendentes com o painel Kanban aberto escutam o canal WebSocket da conta e movem o cartão instantaneamente de coluna, eliminando requisições periódicas via polling e reduzindo a carga do servidor.
+

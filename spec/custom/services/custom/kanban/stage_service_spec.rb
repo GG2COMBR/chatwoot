@@ -41,5 +41,24 @@ RSpec.describe Custom::Kanban::StageService do
 
       expect(result[:stage_name]).to eq('Waiting payment')
     end
+
+    it 'broadcasts kanban.stage_changed event via ActionCable' do
+      allow(ActionCable.server).to receive(:broadcast)
+
+      described_class.transition!(conversation, session, 'stage_demo', 'Demonstração Agendada')
+
+      expect(ActionCable.server).to have_received(:broadcast).with(
+        "account_#{account.id}_kanban",
+        hash_including(
+          event: 'kanban.stage_changed',
+          data: hash_including(
+            account_id: account.id,
+            conversation_id: conversation.id,
+            stage_id: 'stage_demo',
+            stage_name: 'Demonstração Agendada'
+          )
+        )
+      )
+    end
   end
 end

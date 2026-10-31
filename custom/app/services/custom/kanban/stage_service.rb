@@ -16,6 +16,7 @@ class Custom::Kanban::StageService
     now = Time.current.iso8601
     update_conversation!(now) if @conversation
     update_session!(now) if @session
+    broadcast_transition!(now) if @conversation
 
     {
       status: 'success',
@@ -50,5 +51,25 @@ class Custom::Kanban::StageService
       current_kanban_stage_name: @stage_name,
       stage_history: history
     )
+  end
+
+  def broadcast_transition!(timestamp)
+    return unless @conversation&.account_id
+
+    channel = "account_#{@conversation.account_id}_kanban"
+    payload = {
+      event: 'kanban.stage_changed',
+      data: {
+        account_id: @conversation.account_id,
+        conversation_id: @conversation.id,
+        stage_id: @stage_id,
+        stage_name: @stage_name,
+        updated_at: timestamp
+      }
+    }
+
+    ActionCable.server.broadcast(channel, payload)
+  rescue StandardError => e
+    Rails.logger.warn("[Custom::Kanban::StageService] Broadcast failed: #{e.message}")
   end
 end
