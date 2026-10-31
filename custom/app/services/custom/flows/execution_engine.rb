@@ -134,10 +134,6 @@ class Custom::Flows::ExecutionEngine
     }
   end
 
-  def finish_node(session, _node)
-    session.update!(status: :completed)
-  end
-
   def handle_unmatched_transition(current_node)
     retries = (session.context&.dig('retries') || 0) + 1
     max_retries = (current_node.dig(:data, :max_retries) || 2).to_i

@@ -70,8 +70,19 @@ module Custom::Flows::NodeHandlers
     create_outgoing_message(handoff_msg)
   end
 
-  def finish_node(session, _node)
+  def finish_node(session, node)
+    msg = node.dig(:data, :text) || node.dig(:data, :farewell_message)
+    create_outgoing_message(msg) if msg.present?
+
     session.update!(status: :completed)
+    session.update_context(completed_at: Time.current.iso8601)
+
+    target_status = node.dig(:data, :final_conversation_status)
+    if target_status.to_s.downcase == 'snoozed'
+      session.conversation&.snoozed!
+    else
+      session.conversation&.resolved!
+    end
   end
 
   def create_outgoing_message(content)

@@ -67,10 +67,27 @@ class Custom::Flows::InactivityJob < ApplicationJob
   def handle_final_expiration(session, node)
     farewell = node.dig(:data, :farewell_message) || DEFAULT_FAREWELL_MSG
     dispatch_message(session, farewell)
+    send_csat_survey(session, node) if node.dig(:data, :send_csat) == true
 
     session.update!(status: :timed_out)
     session.update_context(expired_at: Time.current.iso8601, expiration_reason: 'inactivity_timeout')
-    session.conversation&.resolved!
+
+    target_status = node.dig(:data, :final_conversation_status)
+    if target_status.to_s.downcase == 'snoozed'
+      session.conversation&.snoozed!
+    else
+      session.conversation&.resolved!
+    end
+  end
+
+  def send_csat_survey(session, node)
+    prompt = node.dig(:data, :csat_message) || 'Como você avalia nosso atendimento automático?'
+    options = [
+      { id: 'csat_5', title: '⭐⭐⭐⭐⭐ Excelente' },
+      { id: 'csat_3', title: '⭐⭐⭐ Regular' },
+      { id: 'csat_1', title: '⭐ Ruim' }
+    ]
+    Custom::Flows::InteractiveMessageService.dispatch!(session.conversation, prompt, options)
   end
 
   def dispatch_message(session, content)
