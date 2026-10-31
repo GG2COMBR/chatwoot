@@ -14,8 +14,7 @@ class Custom::Flows::ProcessFlowJob < ApplicationJob
 
   private
 
-  def process_step(session, _event_data)
-    # Foundation placeholder: will be wired to the Execution Engine in Milestone 2.
-    session
+  def process_step(session, event_data)
+    Custom::Flows::ExecutionEngine.process!(session, event_data)
   end
 end
