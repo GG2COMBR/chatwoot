@@ -110,6 +110,14 @@ class Custom::Flows::ExecutionEngine
   def execute_node(node)
     handler = node_handlers[node[:type].to_s]
     send(handler, session, node) if handler
+    schedule_inactivity_monitor(node)
+  end
+
+  def schedule_inactivity_monitor(node)
+    return unless session.active?
+    return if %w[finish team_assignment].include?(node[:type].to_s)
+
+    Custom::Flows::InactivityJob.schedule_for(session, node)
   end
 
   def node_handlers

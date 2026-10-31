@@ -33,6 +33,13 @@ class Custom::FlowSession < ApplicationRecord
     save!
   end
 
+  def current_node
+    return nil if current_node_id.blank?
+
+    nodes = flow_snapshot&.dig('nodes') || []
+    nodes.find { |n| n['id'] == current_node_id || n[:id] == current_node_id }&.with_indifferent_access
+  end
+
   private
 
   def set_initial_snapshot

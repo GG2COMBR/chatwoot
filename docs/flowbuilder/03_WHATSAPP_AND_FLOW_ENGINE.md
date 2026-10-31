@@ -92,6 +92,20 @@ Garante que qualquer desejo expresso pelo cliente de falar com um atendente huma
 
 ---
 
+## 3.2. Detector de Inatividade Atômico com Sidekiq (`Custom::Flows::InactivityJob`)
+
+Monitora sessões ativas para evitar abandono de carrinhos ou conversas congeladas na URA:
+
+- **Localização**: `custom/app/jobs/custom/flows/inactivity_job.rb`.
+- **Fila Sidekiq**: `:flows_processing`.
+- **Ciclo de Vida em 2 Estágios com Token Atômico**:
+  1. **Agendamento**: A cada nó executado no `ExecutionEngine` que aguarda resposta do cliente, gera-se um `inactivity_token` aleatório e o job é agendado (`wait: timeout.seconds`, padrão: 300s).
+  2. **Verificação com Mutex**: Ao despertar no Sidekiq, adquire lock distribuído no Redis (`session:<id>`). Se o cliente já tiver respondido (o nó atual avançou ou o token mudou), o job encerra silenciosamente como no-op.
+  3. **Estágio 1 - Aviso / Lembrete**: Caso o cliente continue inativo no mesmo nó, envia mensagem amigável de lembrete (*"Você ainda está aí? Posso continuar te ajudando?"*), marca `inactivity_warned: true` no contexto e agenda o estágio final.
+  4. **Estágio 2 - Encerramento Elegante**: Se o cliente persistir sem responder após o segundo timeout, envia a mensagem de despedida/encerramento (*"Atendimento encerrado por inatividade..."*), atualiza o status da sessão para `timed_out` e marca a conversa no Chatwoot como `resolved`.
+
+---
+
 ## 4. Guarda Humano x Robô & Elegibilidade Estrita (`Custom::Flows::EligibilityService`)
 
 Para eliminar qualquer concorrência entre robôs e atendentes humanos:
