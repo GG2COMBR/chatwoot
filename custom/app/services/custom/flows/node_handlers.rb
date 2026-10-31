@@ -12,21 +12,17 @@ module Custom::Flows::NodeHandlers
   end
 
   def evaluate_business_hours_node(session, node)
-    is_open = Custom::Flows::ScheduleEvaluatorService.open_now?(
-      node[:data] || session.conversation.inbox,
-      timezone: node.dig(:data, :timezone) || 'America/Sao_Paulo'
-    )
+    tz = node.dig(:data, :timezone) || 'America/Sao_Paulo'
+    is_open = Custom::Flows::ScheduleEvaluatorService.open_now?(node[:data] || session.conversation.inbox, timezone: tz)
     session.update_context(business_hours_open: is_open)
   end
 
   def dispatch_async_action(session, node)
-    wait_message = node.dig(:data, :wait_message) ||
-                   node.dig(:data, :feedback_message) ||
+    wait_message = node.dig(:data, :wait_message) || node.dig(:data, :feedback_message) ||
                    '⏳ Aguarde um instante enquanto consultamos seus dados...'
 
     session.update_context(last_wait_message: wait_message)
     create_outgoing_message(wait_message)
-
     Custom::Flows::AsyncActionJob.perform_later(session.id, node[:id], node[:data] || {})
   end
 
@@ -50,7 +46,9 @@ module Custom::Flows::NodeHandlers
     prompt = input_data[:content] || session.context&.dig('last_unmatched_input')
     return trigger_human_handoff(session, node, 'human_intent_detected') if Custom::Ai::HandoffDetectorService.human_intent?(prompt)
 
-    node_data = node[:data] || {}
+    node_data = (node[:data] || {}).dup
+    node_data[:system_prompt] = interpolate_variables(node_data[:system_prompt]) if node_data[:system_prompt].present?
+
     result = Custom::Ai::BedrockService.chat(prompt, node_data)
     ai_text = result[:content]
 
@@ -119,10 +117,8 @@ module Custom::Flows::NodeHandlers
   def contact_replacements(contact)
     full_name = contact&.name.presence || 'Cliente'
     {
-      '{{contact.name}}' => full_name,
-      '{{contact.first_name}}' => full_name.split(/\s+/).first || 'Cliente',
-      '{{contact.email}}' => contact&.email.to_s,
-      '{{contact.phone_number}}' => contact&.phone_number.to_s,
+      '{{contact.name}}' => full_name, '{{contact.first_name}}' => full_name.split(/\s+/).first || 'Cliente',
+      '{{contact.email}}' => contact&.email.to_s, '{{contact.phone_number}}' => contact&.phone_number.to_s,
       '{{account.name}}' => session.account&.name.to_s
     }
   end

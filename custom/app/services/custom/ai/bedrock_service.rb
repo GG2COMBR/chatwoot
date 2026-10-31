@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Custom::Ai::BedrockService
+  DEFAULT_PROVIDER = 'bedrock'
   DEFAULT_MODEL = 'amazon.nova-lite-v1:0'
   DEFAULT_MAX_TOKENS = 300
   DEFAULT_TEMPERATURE = 0.3
@@ -37,6 +38,7 @@ class Custom::Ai::BedrockService
 
     {
       status: 'success',
+      provider: provider,
       model: model,
       content: content,
       prompt: prompt
@@ -48,8 +50,15 @@ class Custom::Ai::BedrockService
 
   private
 
+  def provider
+    @options[:provider].presence || DEFAULT_PROVIDER
+  end
+
   def model
-    @options[:model].presence || DEFAULT_MODEL
+    m = @options[:model]
+    return @options[:custom_model].presence || DEFAULT_MODEL if m == 'custom'
+
+    m.presence || DEFAULT_MODEL
   end
 
   def temperature
@@ -86,6 +95,7 @@ class Custom::Ai::BedrockService
   def fallback_response(reason)
     {
       status: 'fallback',
+      provider: provider,
       model: model,
       content: DEFAULT_FALLBACK_TEXT,
       reason: reason
@@ -93,14 +103,49 @@ class Custom::Ai::BedrockService
   end
 
   def configure_credentials!
-    region = @options[:region] || ENV['CAPTAIN_BEDROCK_REGION'] || 'us-east-1'
-    access_key = @options[:access_key] || ENV['CAPTAIN_BEDROCK_ACCESS_KEY_ID'] || 'test-key'
-    secret_key = @options[:secret_key] || ENV['CAPTAIN_BEDROCK_SECRET_ACCESS_KEY'] || 'test-secret'
+    case provider.to_s.downcase
+    when 'openai'
+      configure_openai!
+    when 'anthropic'
+      configure_anthropic!
+    when 'gemini'
+      configure_gemini!
+    when 'ollama'
+      configure_ollama!
+    else
+      configure_bedrock!
+    end
+  end
+
+  def configure_bedrock!
+    region = @options[:region] || ENV.fetch('CAPTAIN_BEDROCK_REGION', 'us-east-1')
+    access_key = @options[:access_key] || ENV.fetch('CAPTAIN_BEDROCK_ACCESS_KEY_ID', 'test-key')
+    secret_key = @options[:secret_key] || ENV.fetch('CAPTAIN_BEDROCK_SECRET_ACCESS_KEY', 'test-secret')
 
     RubyLLM.configure do |c|
       c.bedrock_region = region
       c.bedrock_api_key = access_key
       c.bedrock_secret_key = secret_key
     end
+  end
+
+  def configure_openai!
+    api_key = @options[:api_key] || ENV.fetch('OPENAI_API_KEY', nil)
+    RubyLLM.configure { |c| c.openai_api_key = api_key } if api_key.present?
+  end
+
+  def configure_anthropic!
+    api_key = @options[:api_key] || ENV.fetch('ANTHROPIC_API_KEY', nil)
+    RubyLLM.configure { |c| c.anthropic_api_key = api_key } if api_key.present?
+  end
+
+  def configure_gemini!
+    api_key = @options[:api_key] || ENV.fetch('GEMINI_API_KEY', nil)
+    RubyLLM.configure { |c| c.gemini_api_key = api_key } if api_key.present?
+  end
+
+  def configure_ollama!
+    api_base = @options[:api_base] || ENV.fetch('OLLAMA_API_BASE', 'http://localhost:11434')
+    RubyLLM.configure { |c| c.ollama_api_base = api_base }
   end
 end

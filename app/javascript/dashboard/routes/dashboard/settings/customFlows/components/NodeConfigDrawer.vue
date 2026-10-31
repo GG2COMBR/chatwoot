@@ -79,6 +79,60 @@ const appendVariable = (field, tag) => {
   const currentValue = nodeData.value[field] || '';
   updateData(field, `${currentValue}${currentValue ? ' ' : ''}${tag}`);
 };
+
+const LLM_PROVIDERS = [
+  { value: 'bedrock', label: 'AWS Bedrock (Corporativo)' },
+  { value: 'openai', label: 'OpenAI (GPT-4o / o1)' },
+  { value: 'anthropic', label: 'Anthropic (Claude 3.5)' },
+  { value: 'gemini', label: 'Google Gemini (1.5 / 2.0)' },
+  { value: 'ollama', label: 'Ollama (Local / Self-hosted)' },
+];
+
+const LLM_MODELS_BY_PROVIDER = {
+  bedrock: [
+    { value: 'amazon.nova-lite-v1:0', label: 'Amazon Nova Lite (Rápido & Econômico)' },
+    { value: 'amazon.nova-pro-v1:0', label: 'Amazon Nova Pro (Raciocínio Avançado)' },
+    { value: 'anthropic.claude-3-5-haiku-20241022-v1:0', label: 'Claude 3.5 Haiku (Bedrock)' },
+    { value: 'anthropic.claude-3-5-sonnet-20241022-v2:0', label: 'Claude 3.5 Sonnet (Bedrock)' },
+    { value: 'meta.llama3-3-70b-instruct-v1:0', label: 'Meta Llama 3.3 70B (Bedrock)' },
+  ],
+  openai: [
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Rápido & Econômico)' },
+    { value: 'gpt-4o', label: 'GPT-4o Omni (Flagship Multimodal)' },
+    { value: 'o1-mini', label: 'o1 Mini (Raciocínio & Lógica)' },
+  ],
+  anthropic: [
+    { value: 'claude-3-5-haiku-latest', label: 'Claude 3.5 Haiku (Ultrarrápido)' },
+    { value: 'claude-3-5-sonnet-latest', label: 'Claude 3.5 Sonnet (Inteligência Máxima)' },
+  ],
+  gemini: [
+    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Ultrarrápido)' },
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Janela Longa de Contexto)' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Next-Gen)' },
+  ],
+  ollama: [
+    { value: 'llama3.2', label: 'Llama 3.2 (Local)' },
+    { value: 'mistral', label: 'Mistral 7B (Local)' },
+    { value: 'deepseek-r1:8b', label: 'DeepSeek R1 8B (Raciocínio Local)' },
+  ],
+};
+
+const currentProvider = computed(() => nodeData.value.provider || 'bedrock');
+
+const currentModelList = computed(() => {
+  return LLM_MODELS_BY_PROVIDER[currentProvider.value] || LLM_MODELS_BY_PROVIDER.bedrock;
+});
+
+const onProviderChange = provider => {
+  const models = LLM_MODELS_BY_PROVIDER[provider] || [];
+  const defaultModel = models[0]?.value || 'amazon.nova-lite-v1:0';
+  const updatedData = {
+    ...nodeData.value,
+    provider,
+    model: defaultModel,
+  };
+  emit('update', { ...props.node, data: updatedData });
+};
 </script>
 
 <template>
@@ -343,11 +397,100 @@ const appendVariable = (field, tag) => {
         </div>
       </div>
 
-      <!-- Configuração por Tipo: Assistente IA Bedrock -->
+      <!-- Configuração por Tipo: Assistente IA Generativa (Multi-LLM) -->
       <div v-if="node.type === 'ai_fallback' || node.type === 'ai_agent'" class="flex flex-col gap-3">
+        <!-- Provedor LLM -->
         <div>
           <label class="block text-xs font-medium text-n-slate-11 mb-1">
-            Instrução do Assistente (System Prompt)
+            Provedor de Inteligência Artificial *
+          </label>
+          <select
+            :value="currentProvider"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @change="onProviderChange($event.target.value)"
+          >
+            <option
+              v-for="prov in LLM_PROVIDERS"
+              :key="prov.value"
+              :value="prov.value"
+            >
+              {{ prov.label }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Modelo LLM -->
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Modelo de LLM *
+          </label>
+          <select
+            :value="nodeData.model || currentModelList[0]?.value"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @change="updateData('model', $event.target.value)"
+          >
+            <option
+              v-for="mdl in currentModelList"
+              :key="mdl.value"
+              :value="mdl.value"
+            >
+              {{ mdl.label }}
+            </option>
+            <option value="custom">Outro modelo (especificar)...</option>
+          </select>
+        </div>
+
+        <!-- Modelo Customizado (se selecionado custom ou se não estiver na lista padrão) -->
+        <div v-if="nodeData.model === 'custom' || (!currentModelList.some(m => m.value === nodeData.model) && nodeData.custom_model)">
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Identificador do Modelo Customizado *
+          </label>
+          <input
+            :value="nodeData.custom_model || ''"
+            type="text"
+            placeholder="Ex: meta.llama3-8b-instruct-v1:0 ou gpt-4-turbo"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @input="updateData('custom_model', $event.target.value)"
+          />
+        </div>
+
+        <!-- Parâmetros de Inferência: Temperatura e Tokens -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-medium text-n-slate-11 mb-1">
+              Temperatura
+            </label>
+            <select
+              :value="nodeData.temperature !== undefined ? String(nodeData.temperature) : '0.3'"
+              class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+              @change="updateData('temperature', parseFloat($event.target.value))"
+            >
+              <option value="0.1">0.1 (Mais Precisa)</option>
+              <option value="0.3">0.3 (Equilibrada)</option>
+              <option value="0.7">0.7 (Mais Criativa)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-n-slate-11 mb-1">
+              Tokens Máximos
+            </label>
+            <select
+              :value="nodeData.max_tokens ? String(nodeData.max_tokens) : '300'"
+              class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+              @change="updateData('max_tokens', parseInt($event.target.value, 10))"
+            >
+              <option value="150">150 (~100 pal.)</option>
+              <option value="300">300 (~200 pal.)</option>
+              <option value="600">600 (~400 pal.)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- System Prompt com Inserção de Variáveis -->
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Instrução do Assistente (System Prompt) *
           </label>
           <textarea
             :value="nodeData.system_prompt || ''"
@@ -355,6 +498,44 @@ const appendVariable = (field, tag) => {
             placeholder="Ex: Você é o assistente virtual da GG2. Responda em tom cordial e tire dúvidas sobre pedidos..."
             class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
             @input="updateData('system_prompt', $event.target.value)"
+          />
+          <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <span class="text-[10px] text-n-slate-10">Inserir:</span>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('system_prompt', '{{contact.first_name}}')"
+            >
+              {{contact.first_name}}
+            </button>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('system_prompt', '{{contact.name}}')"
+            >
+              {{contact.name}}
+            </button>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('system_prompt', '{{account.name}}')"
+            >
+              {{account.name}}
+            </button>
+          </div>
+        </div>
+
+        <!-- Mensagem de Fallback / Contingência -->
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Mensagem de Contingência (Fallback)
+          </label>
+          <textarea
+            :value="nodeData.fallback_message || ''"
+            rows="2"
+            placeholder="Ex: Compreendo sua dúvida! Vou transferir sua conversa para um atendente humano..."
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
+            @input="updateData('fallback_message', $event.target.value)"
           />
         </div>
       </div>
