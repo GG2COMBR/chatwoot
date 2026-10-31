@@ -1,0 +1,72 @@
+name: GG2 Flowbuilder CI
+
+on:
+  pull_request:
+    branches:
+      - staging
+      - main
+    paths:
+      - 'custom/**'
+      - 'spec/custom/**'
+      - 'config/initializers/00_custom_loader.rb'
+      - '.github/workflows/ci_flowbuilder.yml'
+  push:
+    branches:
+      - staging
+    paths:
+      - 'custom/**'
+      - 'spec/custom/**'
+      - 'config/initializers/00_custom_loader.rb'
+      - '.github/workflows/ci_flowbuilder.yml'
+
+jobs:
+  lint:
+    name: RuboCop (Custom Layer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.4
+          bundler-cache: true
+      - name: Run RuboCop
+        run: bundle exec rubocop custom/ spec/custom/ config/initializers/00_custom_loader.rb lib/tasks/custom.rake
+
+  test:
+    name: RSpec (Custom Layer)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: Password22@
+          POSTGRES_DB: chatwoot_test
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 5
+    env:
+      RAILS_ENV: test
+      POSTGRES_DATABASE: chatwoot_test
+      POSTGRES_HOST: localhost
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: Password22@
+      REDIS_URL: redis://localhost:6379
+      SECRET_KEY_BASE: test_secret_key_base_32_bytes_long_random_seed_1234
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.4
+          bundler-cache: true
+      - name: Setup DB Schema
+        run: |
+          bundle exec rails db:test:prepare
+      - name: Run Custom RSpec Suite
+        run: |
+          bundle exec rspec spec/custom/
