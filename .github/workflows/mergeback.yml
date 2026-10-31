@@ -1,5 +1,8 @@
 name: Auto Mergeback (main to staging)
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:

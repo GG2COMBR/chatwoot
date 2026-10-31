@@ -49,3 +49,13 @@ Para evitar divergência de histórico (Git Drift) e garantir que tags, commits 
    - Se ocorrer um bug crítico em produção, cria-se `hotfix/<id>` a partir de `main`.
    - Mergeia-se em `main` com tag de patch (`vX.Y.Z+1`).
    - O mergeback propaga o hotfix imediatamente para `staging`.
+
+---
+
+## 5. Pipeline Automatizada de CI (`.github/workflows/ci_flowbuilder.yml`)
+
+Garante a validação rigorosa de cada Pull Request apontando para `staging`:
+
+- **Gatilho**: Disparado em PRs e pushes para `staging` que alterem arquivos sob `custom/`, `spec/custom/` ou o loader.
+- **Job de Lint**: Executa `bundle exec rubocop custom/ spec/custom/ config/initializers/00_custom_loader.rb lib/tasks/custom.rake` (0 ofensas toleradas).
+- **Job de Testes**: Levanta instâncias efêmeras de PostgreSQL 16 e Redis 7 no GitHub Actions e executa a suíte de testes `spec/custom/` com 100% de cobertura nos cenários BDD.
