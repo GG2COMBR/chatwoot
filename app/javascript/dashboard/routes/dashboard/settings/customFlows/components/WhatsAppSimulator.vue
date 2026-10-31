@@ -106,7 +106,9 @@ const processNode = node => {
       }
       case 'ai_fallback':
       case 'ai_agent': {
-        addBotMessage('🤖 [IA Bedrock] Olá! Sou a assistente inteligente da GG2. Como posso ajudar com seu pedido?');
+        const prov = (node.data?.provider || 'bedrock').toUpperCase();
+        const mdl = node.data?.model === 'custom' && node.data?.custom_model ? node.data.custom_model : (node.data?.model || 'amazon.nova-lite-v1:0');
+        addBotMessage(`🤖 [IA ${prov} • ${mdl}] Olá! Sou a assistente inteligente da GG2. Como posso ajudar com seu pedido?`);
         isSimulating.value = false;
         break;
       }

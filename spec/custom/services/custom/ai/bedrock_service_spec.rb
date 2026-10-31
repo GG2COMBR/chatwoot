@@ -87,5 +87,29 @@ RSpec.describe Custom::Ai::BedrockService do
       expect(result[:reason]).to eq('Bedrock throttled')
       expect(result[:content]).to include('transferir')
     end
+
+    it 'configures provider specific credentials for openai' do
+      expect(chat_mock).to receive(:ask).and_return('OpenAI response')
+
+      result = described_class.chat('Olá', provider: 'openai', model: 'gpt-4o-mini', api_key: 'sk-test')
+      expect(result[:status]).to eq('success')
+      expect(result[:model]).to eq('gpt-4o-mini')
+    end
+
+    it 'configures provider specific credentials for anthropic' do
+      expect(chat_mock).to receive(:ask).and_return('Claude response')
+
+      result = described_class.chat('Olá', provider: 'anthropic', model: 'claude-3-5-haiku-latest', api_key: 'sk-ant-test')
+      expect(result[:status]).to eq('success')
+      expect(result[:model]).to eq('claude-3-5-haiku-latest')
+    end
+
+    it 'configures provider specific credentials for ollama' do
+      expect(chat_mock).to receive(:ask).and_return('Ollama response')
+
+      result = described_class.chat('Olá', provider: 'ollama', model: 'llama3.2', api_base: 'http://localhost:11434')
+      expect(result[:status]).to eq('success')
+      expect(result[:model]).to eq('llama3.2')
+    end
   end
 end

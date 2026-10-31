@@ -58,7 +58,7 @@ const nodeMeta = computed(() => {
     case 'ai_fallback':
     case 'ai_agent':
       return {
-        label: 'Assistente IA Bedrock',
+        label: 'Assistente IA (LLM)',
         icon: 'i-lucide-sparkles',
         color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30',
         hasTarget: true,
@@ -109,6 +109,11 @@ const nodeMeta = computed(() => {
 });
 
 const nodePreview = computed(() => {
+  if (props.type === 'ai_fallback' || props.type === 'ai_agent') {
+    const prov = props.data?.provider || 'bedrock';
+    const mdl = props.data?.model === 'custom' && props.data?.custom_model ? props.data.custom_model : (props.data?.model || 'amazon.nova-lite-v1:0');
+    return `IA [${prov}]: ${mdl}`;
+  }
   if (props.data?.text) return props.data.text;
   if (props.data?.body) return props.data.body;
   if (props.data?.stage_name) return `Estágio: ${props.data.stage_name}`;
