@@ -92,6 +92,7 @@ class Custom::Flows::ExecutionEngine
 
     button_matches?(condition[:button_id]) ||
       value_matches?(condition[:value]) ||
+      status_matches?(condition[:status]) ||
       keyword_matches?(condition[:keyword])
   end
 
@@ -100,6 +101,10 @@ class Custom::Flows::ExecutionEngine
   end
 
   def value_matches?(expected)
+    expected.present? && expected.to_s.casecmp(input_data[:content].to_s.strip).zero?
+  end
+
+  def status_matches?(expected)
     expected.present? && expected.to_s.casecmp(input_data[:content].to_s.strip).zero?
   end
 
@@ -134,6 +139,7 @@ class Custom::Flows::ExecutionEngine
       'interactive_list' => ->(s, n, _inp) { dispatch_interactive(s, n) },
       'team_assignment' => ->(s, n, _inp) { dispatch_team_assignment(s, n) },
       'business_hours' => ->(s, n, _inp) { evaluate_business_hours_node(s, n) },
+      'async_action' => ->(s, n, _inp) { dispatch_async_action(s, n) },
       'ai_fallback' => ->(s, _n, _inp) { s.update_context(ai_routed: true) },
       'finish' => ->(s, _n, _inp) { s.update!(status: :completed) }
     }
@@ -157,6 +163,24 @@ class Custom::Flows::ExecutionEngine
       timezone: node.dig(:data, :timezone) || 'America/Sao_Paulo'
     )
     session.update_context(business_hours_open: is_open)
+  end
+
+  def dispatch_async_action(session, node)
+    wait_message = node.dig(:data, :wait_message) ||
+                   node.dig(:data, :feedback_message) ||
+                   '⏳ Aguarde um instante enquanto consultamos seus dados...'
+
+    if session.conversation && wait_message.present?
+      session.conversation.messages.create!(
+        account_id: session.account_id,
+        inbox_id: session.conversation.inbox_id,
+        message_type: :outgoing,
+        content: wait_message
+      )
+      session.update_context(last_wait_message: wait_message)
+    end
+
+    Custom::Flows::AsyncActionJob.perform_later(session.id, node[:id], node[:data] || {})
   end
 
   def dispatch_simple_message(session, node)

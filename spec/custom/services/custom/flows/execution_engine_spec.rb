@@ -84,5 +84,40 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(session.current_node_id).to eq('node_1')
       expect(session.status).to eq('completed')
     end
+
+    it 'executes async_action node by creating wait message and enqueuing AsyncActionJob' do
+      async_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Async Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_async',
+            type: 'async_action',
+            data: { wait_message: '⏳ Aguarde...', type: 'mock' }
+          }
+        ],
+        edges: []
+      )
+      async_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: async_flow,
+        conversation: conversation,
+        status: :active
+      )
+
+      expect(Custom::Flows::AsyncActionJob).to receive(:perform_later).with(
+        async_session.id,
+        'node_async',
+        { 'wait_message' => '⏳ Aguarde...', 'type' => 'mock' }
+      )
+
+      expect do
+        described_class.process!(async_session)
+      end.to change { conversation.messages.count }.by(1)
+
+      expect(conversation.messages.last.content).to eq('⏳ Aguarde...')
+      expect(async_session.current_node_id).to eq('node_async')
+    end
   end
 end

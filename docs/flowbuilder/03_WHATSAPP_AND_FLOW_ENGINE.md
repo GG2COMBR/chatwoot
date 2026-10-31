@@ -28,12 +28,19 @@ Para proporcionar uma experiência profissional e evitar que o cliente precise d
 Quando a URA precisa executar uma ação pesada (como consultar o ERP, buscar segunda via de boleto ou consultar status de pedido no Magento):
 
 1. **Mensagem Imediata de Feedback (Zero Vácuo)**:
-   - O motor envia instantaneamente uma mensagem no WhatsApp configurada no nó (ex: *"⏳ Aguarde um instante enquanto consultamos seus pedidos..."*).
+   - O nó do tipo `async_action` envia instantaneamente uma mensagem no WhatsApp configurada no campo `wait_message` ou `feedback_message` (ex: *"⏳ Aguarde um instante enquanto consultamos seus dados..."*).
+   - O texto enviado fica registrado no contexto da sessão (`last_wait_message`).
 2. **Execução em Segundo Plano**:
-   - O trabalho é enfileirado no Sidekiq (`Custom::Flows::AsyncActionJob`) na fila `:flows_processing`.
-   - A thread web do Chatwoot é liberada imediatamente.
-3. **Retomada Automática**:
-   - Assim que a API externa responde, o job retoma o fluxo no próximo nó, entregando o resultado formatado no WhatsApp.
+   - O trabalho é enfileirado no Sidekiq (`Custom::Flows::AsyncActionJob`) na fila dedicada `:flows_processing`.
+   - Adquire mutex distribuído no Redis (`session:<session_id>`) para garantir isolamento atômico e proteção contra reentrância.
+   - A thread web do Chatwoot é liberada imediatamente em menos de 10ms.
+3. **Mapeamento de Ações Suportadas**:
+   - `mock`: Retorna imediatamente uma resposta simulada configurada no nó (ex: status de pedido, boleto simulado, dados de cliente) com `{ status: 'success', data: ... }`.
+   - `http_request`: Realiza chamada HTTP externa via HTTParty (métodos `get`, `post`, etc.) com timeout configurado de 5s.
+4. **Retomada Automática do Grafo**:
+   - O resultado da ação é gravado no JSONB `context` da sessão (`action_result` e `last_action_node`).
+   - O job invoca `Custom::Flows::ExecutionEngine.process!(session, content: result[:status], action_result: result)`.
+   - As arestas que partem do nó `async_action` podem verificar a condição por status (`condition: { status: 'success' }` ou `condition: { status: 'error' }`) ou seguir pela aresta default.
 
 ---
 
