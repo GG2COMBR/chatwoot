@@ -50,7 +50,7 @@ const nodeTypes = {
   finish: markRaw(CustomNode),
 };
 
-const { addEdges, removeNodes } = useVueFlow();
+const { addNodes, addEdges, removeNodes, setNodes, setEdges, findNode } = useVueFlow('flow_canvas');
 
 const fetchFlow = async () => {
   isLoading.value = true;
@@ -58,11 +58,16 @@ const fetchFlow = async () => {
     const response = await CustomFlowsAPI.show(route.params.flowId);
     flow.value = response.data?.payload;
 
-    nodes.value = (flow.value?.nodes || []).map(n => ({
+    const loadedNodes = (flow.value?.nodes || []).map(n => ({
       ...n,
       type: n.type || 'message',
     }));
-    edges.value = flow.value?.edges || [];
+    const loadedEdges = flow.value?.edges || [];
+
+    nodes.value = loadedNodes;
+    edges.value = loadedEdges;
+    setNodes(loadedNodes);
+    setEdges(loadedEdges);
   } catch (error) {
     useAlert('Erro ao carregar detalhes do fluxo');
   } finally {
@@ -96,13 +101,14 @@ const handleAddNode = ({ type, data }) => {
     id: newNodeId,
     type,
     position: {
-      x: 340 + (offset % 2) * 50,
+      x: 360 + (offset % 2) * 40,
       y: 120 + offset * 70,
     },
-    data,
+    data: JSON.parse(JSON.stringify(data || {})),
   };
 
-  nodes.value.push(newNode);
+  addNodes([newNode]);
+  nodes.value = [...nodes.value, newNode];
   selectedNode.value = newNode;
   isDrawerOpen.value = true;
 };
@@ -110,8 +116,19 @@ const handleAddNode = ({ type, data }) => {
 const handleUpdateNode = updatedNode => {
   const index = nodes.value.findIndex(n => n.id === updatedNode.id);
   if (index !== -1) {
-    nodes.value[index] = { ...updatedNode };
-    selectedNode.value = nodes.value[index];
+    const updated = {
+      ...updatedNode,
+      data: { ...(updatedNode.data || {}) },
+    };
+    const newNodes = [...nodes.value];
+    newNodes[index] = updated;
+    nodes.value = newNodes;
+    selectedNode.value = updated;
+
+    const vfNode = findNode(updatedNode.id);
+    if (vfNode) {
+      vfNode.data = { ...updated.data };
+    }
   }
 };
 
@@ -132,9 +149,19 @@ const closeDrawer = () => {
 const saveFlow = async () => {
   isSaving.value = true;
   try {
+    const currentNodes = nodes.value.map(n => {
+      const vfNode = findNode(n.id);
+      return {
+        id: n.id,
+        type: n.type,
+        position: vfNode?.position ? { x: vfNode.position.x, y: vfNode.position.y } : n.position,
+        data: vfNode?.data || n.data,
+      };
+    });
+
     const payload = {
       custom_flow: {
-        nodes: nodes.value,
+        nodes: currentNodes,
         edges: edges.value,
       },
     };
@@ -250,6 +277,7 @@ const backToList = () => {
       />
 
       <VueFlow
+        id="flow_canvas"
         v-model:nodes="nodes"
         v-model:edges="edges"
         :node-types="nodeTypes"
@@ -278,6 +306,9 @@ const backToList = () => {
           <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
         </template>
         <template #node-ai_fallback="nodeProps">
+          <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
+        </template>
+        <template #node-ai_agent="nodeProps">
           <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
         </template>
         <template #node-human_transfer="nodeProps">

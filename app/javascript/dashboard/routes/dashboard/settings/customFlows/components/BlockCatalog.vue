@@ -119,7 +119,7 @@ const availableBlocks = [
 const handleAdd = block => {
   emit('add-node', {
     type: block.type,
-    data: { ...block.defaultData },
+    data: JSON.parse(JSON.stringify(block.defaultData || {})),
   });
 };
 </script>
@@ -136,9 +136,9 @@ const handleAdd = block => {
         v-for="block in availableBlocks"
         :key="block.type"
         type="button"
-        class="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-transparent text-left transition-all duration-150 group"
+        class="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-transparent text-left transition-all duration-150 cursor-pointer active:scale-[0.98] group"
         :class="block.color"
-        @click="handleAdd(block)"
+        @click.stop="handleAdd(block)"
       >
         <div class="size-6 rounded-lg bg-n-alpha-2 flex items-center justify-center shrink-0">
           <Icon :icon="block.icon" class="size-3.5" />
