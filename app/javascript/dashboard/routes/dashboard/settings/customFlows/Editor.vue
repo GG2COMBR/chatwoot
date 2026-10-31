@@ -7,9 +7,10 @@ import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
 import CustomFlowsAPI from 'dashboard/api/customFlows';
 import Button from 'dashboard/components-next/button/Button.vue';
-import Icon from 'dashboard/components-next/icon/Icon.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import CustomNode from './components/CustomNode.vue';
+import BlockCatalog from './components/BlockCatalog.vue';
+import NodeConfigDrawer from './components/NodeConfigDrawer.vue';
 
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
@@ -29,6 +30,9 @@ const isPublishing = ref(false);
 
 const nodes = ref([]);
 const edges = ref([]);
+
+const selectedNode = ref(null);
+const isDrawerOpen = ref(false);
 
 const nodeTypes = {
   start: markRaw(CustomNode),
@@ -78,9 +82,49 @@ const onConnect = params => {
   ]);
 };
 
+const onNodeClick = ({ node }) => {
+  selectedNode.value = node;
+  isDrawerOpen.value = true;
+};
+
+const handleAddNode = ({ type, data }) => {
+  const newNodeId = `node_${Date.now()}`;
+  const offset = nodes.value.length;
+  const newNode = {
+    id: newNodeId,
+    type,
+    position: {
+      x: 340 + (offset % 2) * 50,
+      y: 120 + offset * 70,
+    },
+    data,
+  };
+
+  nodes.value.push(newNode);
+  selectedNode.value = newNode;
+  isDrawerOpen.value = true;
+};
+
+const handleUpdateNode = updatedNode => {
+  const index = nodes.value.findIndex(n => n.id === updatedNode.id);
+  if (index !== -1) {
+    nodes.value[index] = { ...updatedNode };
+    selectedNode.value = nodes.value[index];
+  }
+};
+
 const handleDeleteNode = nodeId => {
+  if (selectedNode.value?.id === nodeId) {
+    isDrawerOpen.value = false;
+    selectedNode.value = null;
+  }
   removeNodes([nodeId]);
   nodes.value = nodes.value.filter(n => n.id !== nodeId);
+};
+
+const closeDrawer = () => {
+  isDrawerOpen.value = false;
+  selectedNode.value = null;
 };
 
 const saveFlow = async () => {
@@ -127,7 +171,7 @@ const backToList = () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full w-full bg-n-solid-1 overflow-hidden">
+  <div class="flex flex-col h-full w-full bg-n-solid-1 overflow-hidden relative">
     <!-- Topbar do Editor -->
     <div class="flex items-center justify-between px-6 py-3 border-b border-n-strong bg-n-solid-2 shrink-0 z-10 shadow-sm">
       <div class="flex items-center gap-4">
@@ -177,6 +221,17 @@ const backToList = () => {
         <Spinner />
       </div>
 
+      <!-- Catálogo Flutuante de Blocos -->
+      <BlockCatalog @add-node="handleAddNode" />
+
+      <!-- Painel Lateral Deslizante de Configuração do Nó -->
+      <NodeConfigDrawer
+        :is-open="isDrawerOpen"
+        :node="selectedNode"
+        @close="closeDrawer"
+        @update="handleUpdateNode"
+      />
+
       <VueFlow
         v-model:nodes="nodes"
         v-model:edges="edges"
@@ -187,6 +242,7 @@ const backToList = () => {
         fit-view-on-init
         class="h-full w-full"
         @connect="onConnect"
+        @node-click="onNodeClick"
       >
         <template #node-start="nodeProps">
           <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
