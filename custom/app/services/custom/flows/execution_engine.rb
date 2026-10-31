@@ -129,14 +129,36 @@ class Custom::Flows::ExecutionEngine
 
   def handler_for(node_type)
     registry = {
-      'message' => ->(s, n, _inp) { s.update_context(last_message_sent: n.dig(:data, :text)) },
-      'interactive_buttons' => ->(s, n, _inp) { s.update_context(last_prompt: n.dig(:data, :text)) },
-      'interactive_list' => ->(s, n, _inp) { s.update_context(last_prompt: n.dig(:data, :text)) },
+      'message' => ->(s, n, _inp) { dispatch_simple_message(s, n) },
+      'interactive_buttons' => ->(s, n, _inp) { dispatch_interactive(s, n) },
+      'interactive_list' => ->(s, n, _inp) { dispatch_interactive(s, n) },
       'team_assignment' => ->(s, _n, _inp) { s.update!(status: :handoff) },
       'ai_fallback' => ->(s, _n, _inp) { s.update_context(ai_routed: true) },
       'finish' => ->(s, _n, _inp) { s.update!(status: :completed) }
     }
 
     registry[node_type.to_s] || ->(_s, _n, _inp) { true }
+  end
+
+  def dispatch_simple_message(session, node)
+    msg_text = node.dig(:data, :text)
+    session.update_context(last_message_sent: msg_text)
+    return unless session.conversation && msg_text.present?
+
+    session.conversation.messages.create!(
+      account_id: session.account_id,
+      inbox_id: session.conversation.inbox_id,
+      message_type: :outgoing,
+      content: msg_text
+    )
+  end
+
+  def dispatch_interactive(session, node)
+    text = node.dig(:data, :text)
+    options = node.dig(:data, :buttons) || node.dig(:data, :items) || []
+    session.update_context(last_prompt: text)
+    return unless session.conversation && text.present?
+
+    Custom::Flows::InteractiveMessageService.dispatch!(session.conversation, text, options)
   end
 end
