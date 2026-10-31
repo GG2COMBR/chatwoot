@@ -166,15 +166,15 @@ const nodePreview = computed(() => {
       </p>
 
       <div
-        v-if="data?.buttons?.length"
+        v-if="data?.buttons?.length || data?.items?.length"
         class="flex flex-wrap gap-1 mt-2 pt-2 border-t border-n-strong/60"
       >
         <span
-          v-for="btn in data.buttons"
-          :key="btn.id"
+          v-for="item in (data.buttons || data.items || [])"
+          :key="item.id"
           class="text-[10px] px-1.5 py-0.5 rounded bg-n-alpha-2 text-n-slate-11 border border-n-strong/40"
         >
-          {{ btn.title }}
+          {{ item.title }}
         </span>
       </div>
     </div>
