@@ -35,12 +35,28 @@ Quando a URA precisa executar uma ação pesada (como consultar o ERP, buscar se
    - Adquire mutex distribuído no Redis (`session:<session_id>`) para garantir isolamento atômico e proteção contra reentrância.
    - A thread web do Chatwoot é liberada imediatamente em menos de 10ms.
 3. **Mapeamento de Ações Suportadas**:
-   - `mock`: Retorna imediatamente uma resposta simulada configurada no nó (ex: status de pedido, boleto simulado, dados de cliente) com `{ status: 'success', data: ... }`.
+   - `mock` / `ecommerce_mock` / `mock_erp`: Encaminha para `Custom::Mocks::EcommerceMockService.dispatch(action_config)`.
    - `http_request`: Realiza chamada HTTP externa via HTTParty (métodos `get`, `post`, etc.) com timeout configurado de 5s.
 4. **Retomada Automática do Grafo**:
    - O resultado da ação é gravado no JSONB `context` da sessão (`action_result` e `last_action_node`).
    - O job invoca `Custom::Flows::ExecutionEngine.process!(session, content: result[:status], action_result: result)`.
    - As arestas que partem do nó `async_action` podem verificar a condição por status (`condition: { status: 'success' }` ou `condition: { status: 'error' }`) ou seguir pela aresta default.
+
+---
+
+## 2.1. Sistema Neutro de Mocks Corporativos (`Custom::Mocks::EcommerceMockService`)
+
+Permite desenvolvimento, testes automatizados e validações de negócios com zero acoplamento externo:
+
+- **Localização**: `custom/app/services/custom/mocks/ecommerce_mock_service.rb`.
+- **Operações Suportadas**:
+  1. `validate_cpf`: Sanitiza pontuações e valida formato (11 dígitos). Retorna dados do cliente (Nome, Status, Tier VIP).
+  2. `recent_orders`: Retorna lista simulada de pedidos recentes com código de rastreamento e status logístico.
+  3. `order_status`: Retorna detalhes de rastreamento com link direto para consulta nos Correios.
+  4. `generate_boleto`: Retorna código de barras formatado, link de PDF seguro e vencimento dinâmico.
+  5. `reseller_balance`: Retorna saldo disponível, comissões pendentes e nível de revendedora consignada.
+- **Transição Transparente para Produção**:
+  - Quando as APIs reais forem plugadas, basta alterar o tipo do nó no Flowbuilder ou direcionar as chamadas via variável de ambiente sem qualquer alteração no motor de execução.
 
 ---
 

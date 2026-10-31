@@ -23,11 +23,11 @@ class Custom::Flows::AsyncActionJob < ApplicationJob
   private
 
   def execute_action(_session, action_config)
-    action_type = action_config[:type] || action_config['type']
+    action_type = (action_config[:type] || action_config['type']).to_s
 
-    case action_type.to_s
-    when 'mock_erp', 'mock'
-      execute_mock_action(action_config)
+    case action_type
+    when 'ecommerce_mock', 'mock_erp', 'mock'
+      Custom::Mocks::EcommerceMockService.dispatch(action_config)
     when 'http_request'
       execute_http_action(action_config)
     else
@@ -35,11 +35,6 @@ class Custom::Flows::AsyncActionJob < ApplicationJob
     end
   rescue StandardError => e
     { status: 'error', error: e.message }
-  end
-
-  def execute_mock_action(action_config)
-    mock_payload = action_config[:mock_response] || action_config['mock_response'] || { 'status' => 'ok' }
-    { status: 'success', data: mock_payload }
   end
 
   def execute_http_action(action_config)
