@@ -14,12 +14,19 @@ Para evitar que mensagens da URA afetem a latência dos atendentes:
 
 ### B. Distributed Mutex no Redis (Controle de Concorrência)
 - Clientes de WhatsApp costumam enviar mensagens repetidas ou clicar rapidamente em vários botões.
-- A cada mensagem recebida, o listener da URA adquire um **Distributed Lock no Redis**:
+- A cada mensagem recebida, o processamento de nós adquire um **Distributed Lock no Redis** através de `Custom::Flows::LockService`:
   ```ruby
-  key = "flow_lock:#{session.id}"
-  # Lock com TTL de 10 segundos e liberação atômica (Lua script)
+  Custom::Flows::LockService.with_lock("session:#{session_id}", ttl_ms: 10_000) do
+    # Execução atômica e segura
+  end
   ```
-- Se uma mensagem duplicada chegar enquanto a anterior está sendo processada, o lock descarta a duplicidade ou a enfileira ordenadamente, eliminando respostas duplas no WhatsApp.
+- **Liberação Atômica Segura**: Utiliza script Lua atômico para garantir que somente o detentor do lock possa liberá-lo, prevenindo liberação acidental em caso de expiração por timeout.
+- Se uma mensagem simultânea chegar enquanto a anterior está sendo processada, o lock descarta a duplicidade ou aborta a execução duplicada graciosamente, eliminando mensagens repetidas no WhatsApp.
+
+### C. Job Assíncrono Isolado (`Custom::Flows::ProcessFlowJob`)
+- Localizado em `custom/app/jobs/custom/flows/process_flow_job.rb`.
+- Mapeado estritamente para `queue_as :flows_processing`.
+- Executa dentro do bloco `Custom::Flows::LockService.with_lock`, garantindo integridade de sessão concorrente.
 
 ---
 
