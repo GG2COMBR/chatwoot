@@ -132,12 +132,31 @@ class Custom::Flows::ExecutionEngine
       'message' => ->(s, n, _inp) { dispatch_simple_message(s, n) },
       'interactive_buttons' => ->(s, n, _inp) { dispatch_interactive(s, n) },
       'interactive_list' => ->(s, n, _inp) { dispatch_interactive(s, n) },
-      'team_assignment' => ->(s, _n, _inp) { s.update!(status: :handoff) },
+      'team_assignment' => ->(s, n, _inp) { dispatch_team_assignment(s, n) },
+      'business_hours' => ->(s, n, _inp) { evaluate_business_hours_node(s, n) },
       'ai_fallback' => ->(s, _n, _inp) { s.update_context(ai_routed: true) },
       'finish' => ->(s, _n, _inp) { s.update!(status: :completed) }
     }
 
     registry[node_type.to_s] || ->(_s, _n, _inp) { true }
+  end
+
+  def dispatch_team_assignment(session, node)
+    team_name = node.dig(:data, :team_name)
+    team = session.account.teams.where('lower(name) = ?', team_name.to_s.downcase).first if team_name.present?
+
+    config = node[:data] || {}
+    result = Custom::Flows::ScheduleEvaluatorService.route_and_handoff!(session.conversation, team, config)
+    session.update!(status: :handoff)
+    session.update_context(handoff_result: result)
+  end
+
+  def evaluate_business_hours_node(session, node)
+    is_open = Custom::Flows::ScheduleEvaluatorService.open_now?(
+      node[:data] || session.conversation.inbox,
+      timezone: node.dig(:data, :timezone) || 'America/Sao_Paulo'
+    )
+    session.update_context(business_hours_open: is_open)
   end
 
   def dispatch_simple_message(session, node)
