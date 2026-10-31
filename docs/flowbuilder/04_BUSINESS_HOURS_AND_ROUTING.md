@@ -9,26 +9,32 @@ Para garantir que o cliente **nunca fique sem resposta nem "no vácuo"**, o sist
 
 ## 2. Validador de Horários (`Custom::Flows::ScheduleEvaluatorService`)
 
-- Avalia a grade semanal do time ou da caixa de entrada em fuso horário local (`America/Sao_Paulo` por padrão).
+- **Localização**: `custom/app/services/custom/flows/schedule_evaluator_service.rb`.
+- Avalia a grade semanal do time ou da caixa de entrada em fuso horário local (`America/Sao_Paulo` por padrão):
+  ```ruby
+  Custom::Flows::ScheduleEvaluatorService.open_now?(target, timezone: 'America/Sao_Paulo')
+  ```
 - Suporta:
   - Horários de início e fim por dia da semana (ex: Seg-Sex das 08:00 às 18:00).
   - Dias com expediente parcial (ex: Sábados das 08:00 às 12:00).
   - Dias totalmente fechados (ex: Domingos).
   - Turnos contínuos 24/7.
+  - Avaliação nativa contra `inbox.working_hours` ou hash de configuração visual do nó (`weekly_schedule`).
 
 ---
 
-## 3. Comportamento Fora do Expediente (Out of Office)
+## 3. Comportamento Fora do Expediente (Out of Office) & Roteamento Atômico
 
-Quando o transbordo ocorre fora do horário, o nó `handoff` ou o nó condicional `business_hours` permite configurar:
+Ao executar o transbordo via `route_and_handoff!(conversation, team, config)`:
 
-1. **Mensagem Personalizada com Interpolação de Variáveis**:
-   - O gestor edita o texto livremente no painel:
-     > *"Olá {{contact.name}}! Nosso time {{team.name}} atende de segunda a sexta, das 08h às 18h. Já registramos sua mensagem e responderemos assim que abrirmos!"*
-2. **Ações Configuráveis**:
-   - `send_message_and_queue`: Envia a mensagem de ausência e mantém o ticket atribuído à equipe com status `pending` para que a fila já apareça organizada para os atendentes no início do expediente.
-   - `fallback_to_ai`: Transfere para a IA Bedrock tirar dúvidas gerais, avisando que o atendente humano responderá depois.
-   - `branch_out`: Ramifica para outro caminho visual no canvas do Flowbuilder.
+1. **Se Aberto**:
+   - Atribui imediatamente o time à conversa (`team: team`).
+   - Define status como `open` para os operadores humanos.
+2. **Se Fechado (Fora do Expediente)**:
+   - Atribui o time mantendo a conversa com status `pending` (evitando alertas fora do turno).
+   - Interpola e envia mensagem amigável de ausência:
+     > *"Olá {{contact.name}}! O time {{team.name}} atende em horário comercial."*
+   - Garante que a fila do dia seguinte esteja previamente organizada no painel.
 
 ---
 
