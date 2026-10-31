@@ -60,13 +60,16 @@ const availableBlocks = [
   },
   {
     type: 'ai_fallback',
-    label: 'Assistente IA Bedrock',
+    label: 'Assistente IA (Multi-LLM)',
     icon: 'i-lucide-sparkles',
     color: 'hover:border-purple-500/50 hover:bg-purple-500/5 text-purple-600 dark:text-purple-400',
     defaultData: {
       label: 'Assistente IA',
-      system_prompt: 'Você é um assistente virtual gentil e prestativo.',
+      provider: 'bedrock',
+      model: 'amazon.nova-lite-v1:0',
+      temperature: 0.3,
       max_tokens: 300,
+      system_prompt: 'Você é um assistente virtual gentil e prestativo da GG2.',
     },
   },
   {
