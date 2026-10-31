@@ -119,6 +119,13 @@ Responsável pela interpretação do snapshot do fluxo e avanço do ponteiro da 
 - **Regras de Transição**:
   1. **Nó Inicial**: Se `current_node_id` for nulo, localiza o nó raiz (sem arestas de entrada ou do tipo `start`) e o executa.
   2. **Arestas Específicas**: Compara `button_id`, texto exato (`value`) ou palavras-chave (`keyword`).
-  3. **Aresta Padrão (Fallback)**: Caso nenhuma condição específica case com a entrada, segue pela aresta padrão (`default: true`).
-  4. **Retentativas e Fuga**: Se nenhuma aresta casar, contabiliza retentativas no contexto e, após 2 falhas, ramifica automaticamente para o nó `ai_fallback`.
-- **Mapeamento de Ações**: Dispara handlers especializados para cada tipo de nó (`message`, `interactive_buttons`, `interactive_list`, `team_assignment`, `ai_fallback`, `finish`).
+  3. **Aresta Padrão (Default)**: Caso nenhuma condição específica case com a entrada e exista uma aresta com `default: true`, segue imediatamente por ela.
+  4. **Contador de Retentativas e Rota de Fuga**:
+     - Se nenhuma aresta casar, contabiliza retentativas no contexto (`retries`).
+     - Caso `retries < max_retries` (padrão: 2), reenvia o nó atual acompanhado da mensagem explicativa `retry_message` se configurada.
+     - Ao atingir `max_retries`, o motor não entra em loop infinito e aciona a rota de fuga na seguinte ordem de prioridade:
+       1. Aresta explícita de erro (`condition: { fallback: true }` ou `condition: { on_error: true }`).
+       2. Nó conectado de IA (`ai_fallback` / `ai_agent`).
+       3. Transbordo humano direto (`trigger_human_handoff` com equipe `SAC`).
+     - Quando o cliente insere uma opção válida posteriormente, o contador de retentativas é resetado para `0`.
+- **Mapeamento de Ações**: Dispara handlers especializados via `Custom::Flows::NodeHandlers` para cada tipo de nó (`message`, `interactive_buttons`, `interactive_list`, `team_assignment`, `async_action`, `ai_fallback`, `finish`).

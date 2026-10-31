@@ -138,5 +138,55 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(conversation.messages.last.content).to eq('⏳ Aguarde...')
       expect(async_session.current_node_id).to eq('node_async')
     end
+
+    it 'tracks retry counts on unmatched input and routes to escape path when max_retries reached' do
+      escape_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Retry Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_menu',
+            type: 'interactive_buttons',
+            data: { text: 'Menu', max_retries: 2, retry_message: 'Opção inválida, tente novamente' }
+          },
+          {
+            id: 'node_escape',
+            type: 'team_assignment',
+            data: { team_name: 'Equipe SAC' }
+          }
+        ],
+        edges: [
+          { id: 'edge_esc', source: 'node_menu', target: 'node_escape', condition: { fallback: true } }
+        ]
+      )
+      retry_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: escape_flow,
+        conversation: conversation,
+        status: :active,
+        current_node_id: 'node_menu'
+      )
+
+      # Attempt 1: invalid input, retries becomes 1, re-prompts
+      described_class.process!(retry_session, content: 'opcao_invalida_1')
+      expect(retry_session.reload.context['retries']).to eq(1)
+      expect(retry_session.current_node_id).to eq('node_menu')
+
+      # Attempt 2: invalid input, reaches max_retries (2), routes to escape node
+      described_class.process!(retry_session, content: 'opcao_invalida_2')
+      expect(retry_session.reload.context['retries']).to eq(2)
+      expect(retry_session.current_node_id).to eq('node_escape')
+      expect(retry_session.status).to eq('handoff')
+    end
+
+    it 'resets retries counter to 0 upon successful edge transition' do
+      session.update!(current_node_id: 'node_1', context: { 'retries' => 1 })
+
+      described_class.process!(session, button_id: 'btn_vendas')
+
+      expect(session.reload.current_node_id).to eq('node_vendas')
+      expect(session.context['retries']).to eq(0)
+    end
   end
 end
