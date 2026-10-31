@@ -99,6 +99,37 @@ RSpec.describe Custom::Flows::InactivityJob, type: :job do
       expect(conversation.reload.status).to eq('resolved')
     end
 
+    it 'dispatches CSAT survey and supports snoozed conversation status' do
+      session.update!(
+        flow_snapshot: {
+          'nodes' => [
+            {
+              id: 'node_menu',
+              type: 'interactive_buttons',
+              data: {
+                farewell_message: 'Até logo!',
+                send_csat: true,
+                csat_message: 'Avalie nossa URA:',
+                final_conversation_status: 'snoozed'
+              }
+            }
+          ]
+        }
+      )
+      session.update_context(inactivity_warned: true)
+
+      expect(Custom::Flows::InteractiveMessageService).to receive(:dispatch!).with(
+        conversation,
+        'Avalie nossa URA:',
+        kind_of(Array)
+      )
+
+      described_class.new.perform(session.id, 'node_menu', token)
+
+      expect(session.reload.status).to eq('timed_out')
+      expect(conversation.reload.status).to eq('snoozed')
+    end
+
     it 'skips execution if customer moved to another node' do
       session.update!(current_node_id: 'node_other')
 

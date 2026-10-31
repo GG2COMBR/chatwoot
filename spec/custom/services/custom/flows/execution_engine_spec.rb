@@ -188,5 +188,34 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(session.reload.current_node_id).to eq('node_vendas')
       expect(session.context['retries']).to eq(0)
     end
+
+    it 'completes session and marks conversation resolved upon reaching finish node' do
+      finish_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Finish Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_end',
+            type: 'finish',
+            data: { farewell_message: 'Obrigado por falar conosco!', final_conversation_status: 'resolved' }
+          }
+        ],
+        edges: []
+      )
+      finish_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: finish_flow,
+        conversation: conversation,
+        status: :active
+      )
+
+      described_class.process!(finish_session)
+
+      expect(finish_session.reload.status).to eq('completed')
+      expect(finish_session.context['completed_at']).to be_present
+      expect(conversation.reload.status).to eq('resolved')
+      expect(conversation.messages.last.content).to eq('Obrigado por falar conosco!')
+    end
   end
 end

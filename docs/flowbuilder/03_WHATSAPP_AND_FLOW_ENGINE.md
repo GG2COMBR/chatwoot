@@ -102,7 +102,13 @@ Monitora sessões ativas para evitar abandono de carrinhos ou conversas congelad
   1. **Agendamento**: A cada nó executado no `ExecutionEngine` que aguarda resposta do cliente, gera-se um `inactivity_token` aleatório e o job é agendado (`wait: timeout.seconds`, padrão: 300s).
   2. **Verificação com Mutex**: Ao despertar no Sidekiq, adquire lock distribuído no Redis (`session:<id>`). Se o cliente já tiver respondido (o nó atual avançou ou o token mudou), o job encerra silenciosamente como no-op.
   3. **Estágio 1 - Aviso / Lembrete**: Caso o cliente continue inativo no mesmo nó, envia mensagem amigável de lembrete (*"Você ainda está aí? Posso continuar te ajudando?"*), marca `inactivity_warned: true` no contexto e agenda o estágio final.
-  4. **Estágio 2 - Encerramento Elegante**: Se o cliente persistir sem responder após o segundo timeout, envia a mensagem de despedida/encerramento (*"Atendimento encerrado por inatividade..."*), atualiza o status da sessão para `timed_out` e marca a conversa no Chatwoot como `resolved`.
+  4. **Estágio 2 - Encerramento Elegante & Resolução**:
+     - Se o cliente persistir sem responder após o segundo timeout, envia a mensagem de despedida (`farewell_message`).
+     - Se `send_csat: true` estiver ativo no nó, dispara pesquisa interativa de satisfação via botões nativos (`Custom::Flows::InteractiveMessageService`).
+     - Atualiza o status da sessão para `timed_out` gravando `expiration_reason: 'inactivity_timeout'`.
+     - Atualiza o status da conversa no Chatwoot para `resolved` (ou `snoozed`, caso configurado via `final_conversation_status: 'snoozed'`), evitando conversas zumbis na caixa de entrada dos atendentes.
+  5. **Conclusão Voluntária (`finish` Node)**:
+     - Quando o cliente conclui um fluxo de autoatendimento com sucesso, o nó `finish` dispara a mensagem de agradecimento, marca a sessão como `completed` com timestamp e transita a conversa no Chatwoot para `resolved`.
 
 ---
 
