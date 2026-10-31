@@ -18,12 +18,7 @@ class Custom::Flows::ExecutionEngine
     return session unless session.active?
     return session if nodes.empty?
 
-    if session.current_node_id.blank?
-      start_flow!
-    else
-      advance_flow!
-    end
-
+    session.current_node_id.blank? ? start_flow! : advance_flow!
     session.save!
     session
   end
@@ -103,10 +98,7 @@ class Custom::Flows::ExecutionEngine
   def value_matches?(expected)
     expected.present? && expected.to_s.casecmp(input_data[:content].to_s.strip).zero?
   end
-
-  def status_matches?(expected)
-    expected.present? && expected.to_s.casecmp(input_data[:content].to_s.strip).zero?
-  end
+  alias status_matches? value_matches?
 
   def keyword_matches?(expected)
     expected.present? && input_data[:content].to_s.downcase.include?(expected.to_s.downcase)
@@ -196,19 +188,27 @@ class Custom::Flows::ExecutionEngine
 
   def dispatch_ai_fallback(session, node)
     prompt = input_data[:content] || session.context&.dig('last_unmatched_input')
-    node_data = node[:data] || {}
+    return trigger_human_handoff(session, node, 'human_intent_detected') if Custom::Ai::HandoffDetectorService.human_intent?(prompt)
 
+    node_data = node[:data] || {}
     result = Custom::Ai::BedrockService.chat(prompt, node_data)
     ai_text = result[:content]
 
-    session.update_context(
-      ai_routed: true,
-      ai_result: result,
-      last_ai_query: prompt,
-      last_ai_response: ai_text
-    )
-
+    session.update_context(ai_routed: true, ai_result: result, last_ai_query: prompt, last_ai_response: ai_text)
     create_outgoing_message(ai_text)
+  end
+
+  def trigger_human_handoff(session, node, reason)
+    team_name = node.dig(:data, :handoff_team) || 'SAC'
+    team = session.account.teams.where('lower(name) = ?', team_name.to_s.downcase).first
+
+    config = node[:data] || {}
+    result = Custom::Flows::ScheduleEvaluatorService.route_and_handoff!(session.conversation, team, config)
+    session.update!(status: :handoff)
+    session.update_context(handoff_reason: reason, handoff_result: result)
+
+    handoff_msg = node.dig(:data, :handoff_message) || 'Encaminhando seu atendimento para nossa equipe...'
+    create_outgoing_message(handoff_msg)
   end
 
   def create_outgoing_message(content)

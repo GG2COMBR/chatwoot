@@ -84,6 +84,17 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(conversation.messages.last.content).to eq('Olá! Sou a IA da GG2. Como posso ajudar?')
     end
 
+    it 'detects human attendant intent on ai node and transfers to human team immediately' do
+      session.update!(current_node_id: 'node_1')
+      expect(Custom::Ai::BedrockService).not_to receive(:chat)
+
+      described_class.process!(session, content: 'Quero falar com um atendente agora')
+
+      expect(session.current_node_id).to eq('node_ai')
+      expect(session.status).to eq('handoff')
+      expect(session.context['handoff_reason']).to eq('human_intent_detected')
+    end
+
     it 'does not process when session is not active' do
       session.update!(status: :completed, current_node_id: 'node_1')
 
