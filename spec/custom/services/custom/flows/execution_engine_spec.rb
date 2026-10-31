@@ -217,5 +217,39 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(conversation.reload.status).to eq('resolved')
       expect(conversation.messages.last.content).to eq('Obrigado por falar conosco!')
     end
+
+    it 'executes kanban_stage_change node by calling StageService' do
+      kanban_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Kanban Stage Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_stage',
+            type: 'kanban_stage_change',
+            data: { stage_id: 'lead_qualificado', stage_name: 'Lead Qualificado' }
+          }
+        ],
+        edges: []
+      )
+      kanban_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: kanban_flow,
+        conversation: conversation,
+        status: :active
+      )
+
+      expect(Custom::Kanban::StageService).to receive(:transition!).with(
+        conversation,
+        kanban_session,
+        'lead_qualificado',
+        'Lead Qualificado'
+      ).and_call_original
+
+      described_class.process!(kanban_session)
+
+      expect(conversation.reload.custom_attributes['kanban_stage_id']).to eq('lead_qualificado')
+      expect(kanban_session.reload.context['last_kanban_transition']['status']).to eq('success')
+    end
   end
 end

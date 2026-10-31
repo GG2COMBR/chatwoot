@@ -130,6 +130,7 @@ class Custom::Flows::ExecutionEngine
       'async_action' => :dispatch_async_action,
       'ai_fallback' => :dispatch_ai_fallback,
       'ai_agent' => :dispatch_ai_fallback,
+      'kanban_stage_change' => :dispatch_kanban_stage_change,
       'finish' => :finish_node
     }
   end
