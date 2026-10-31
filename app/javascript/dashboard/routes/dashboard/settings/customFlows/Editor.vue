@@ -173,7 +173,7 @@ const backToList = () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full w-full bg-n-solid-1 overflow-hidden relative">
+  <div class="flex flex-col flex-1 h-full w-full min-h-0 bg-n-solid-1 overflow-hidden relative">
     <!-- Topbar do Editor -->
     <div class="flex items-center justify-between px-6 py-3 border-b border-n-strong bg-n-solid-2 shrink-0 z-10 shadow-sm">
       <div class="flex items-center gap-4">
@@ -202,14 +202,14 @@ const backToList = () => {
         <Button
           label="Testar Fluxo"
           icon="i-lucide-play"
-          variant="faint"
+          variant="faded"
           size="sm"
           @click="isSimulatorOpen = true"
         />
         <Button
           label="Salvar Alterações"
           icon="i-lucide-save"
-          variant="faint"
+          variant="faded"
           size="sm"
           :loading="isSaving"
           @click="saveFlow"
@@ -225,7 +225,7 @@ const backToList = () => {
     </div>
 
     <!-- Canvas Principal com Vue Flow -->
-    <div class="flex-1 w-full h-full relative">
+    <div class="flex-1 w-full h-full min-h-0 relative" style="min-height: 500px;">
       <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-n-solid-1/80 z-20">
         <Spinner />
       </div>
@@ -258,6 +258,7 @@ const backToList = () => {
         :max-zoom="2"
         fit-view-on-init
         class="h-full w-full"
+        style="width: 100%; height: 100%; min-height: 500px;"
         @connect="onConnect"
         @node-click="onNodeClick"
       >
