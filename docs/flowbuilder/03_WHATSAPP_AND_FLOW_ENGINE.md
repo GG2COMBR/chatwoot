@@ -41,3 +41,21 @@ Quando o cliente digita uma dúvida que não corresponde a nenhuma das opções 
 2. **Respostas com Limite de Tokens e Salvaguardas**:
    - Respostas curtas, objetivas e com formatação compatível com WhatsApp (negrito `*`, quebra de linha).
    - Se o cliente solicitar explicitamente falar com um atendente, o Bedrock ramifica para o nó de transbordo humano (`handoff`).
+
+---
+
+## 4. Guarda Humano x Robô & Elegibilidade Estrita (`Custom::Flows::EligibilityService`)
+
+Para eliminar qualquer concorrência entre robôs e atendentes humanos:
+
+### A. Critérios de Elegibilidade (`Custom::Flows::EligibilityService.eligible?`)
+- **Conversas com Atendente Atribuído**: Se `assignee_id` estiver preenchido, o motor ignora imediatamente a mensagem.
+- **Conversas Abertas**: Se o status da conversa for `open` (em atendimento), o motor do fluxo nunca dispara mensagens.
+- **Mensagens Internas e Privadas**: Notas privadas ou mensagens de saída de agentes são filtradas imediatamente.
+- **Existência de Fluxo Publicado**: A conta deve possuir ao menos um fluxo com status `published`.
+
+### B. Interrupção Imediata por Ação Humana (`handle_human_message`)
+- Sempre que um atendente humano envia uma mensagem pública na conversa, qualquer sessão ativa da URA é imediatamente cancelada com status `interrupted_by_human` e registra o timestamp da interrupção no contexto JSONB.
+
+### C. Reabertura por Cliente (`ensure_pending_state_on_reopen`)
+- Se uma conversa resolvida (`resolved`) ou suspensa (`snoozed`) for reaberta por uma mensagem do cliente sem atendente atribuído, o status é alterado/mantido como `pending`, permitindo o início ordenado de uma nova sessão na URA sem poluir as caixas dos atendentes humanos até o handoff.
