@@ -60,5 +60,30 @@ RSpec.describe Custom::Kanban::StageService do
         )
       )
     end
+
+    it 'calculates dwell time in previous stage upon transition' do
+      t0 = Time.zone.parse('2026-10-31 10:00:00 UTC')
+      t1 = Time.zone.parse('2026-10-31 10:15:30 UTC')
+
+      travel_to t0 do
+        described_class.transition!(conversation, session, 'stage_initial', 'Novo Lead')
+      end
+
+      travel_to t1 do
+        result = described_class.transition!(conversation, session, 'stage_qualified', 'Qualificado')
+        expect(result[:dwell_time][:seconds]).to eq(930)
+        expect(result[:dwell_time][:minutes]).to eq(15.5)
+
+        session.reload
+        first_entry = session.context['stage_history'].first
+        expect(first_entry['dwell_time_seconds']).to eq(930)
+        expect(first_entry['dwell_time_minutes']).to eq(15.5)
+        expect(first_entry['exited_at']).to eq(t1.iso8601)
+
+        attrs = conversation.reload.custom_attributes
+        expect(attrs['kanban_last_stage_dwell_seconds']).to eq(930)
+        expect(attrs['kanban_last_stage_dwell_minutes']).to eq(15.5)
+      end
+    end
   end
 end

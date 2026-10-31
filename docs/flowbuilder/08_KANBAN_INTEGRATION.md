@@ -56,4 +56,18 @@ O módulo Kanban do Flowbuilder conecta a automação conversacional diretamente
      - Instancia uma nova sessão (`Custom::FlowSession`) com o contexto `{ trigger: 'kanban_card_movement', stage_id: ... }`.
      - Inicia a execução do grafo pelo nó inicial via `Custom::Flows::ExecutionEngine.process!(session)`.
 
+---
+
+## 5. Histórico de Permanência e Métricas de Ciclo de Venda (*Dwell Time*)
+
+- **Métricas Registradas**:
+  - `dwell_time_seconds`: Duração exata da permanência no estágio em segundos.
+  - `dwell_time_minutes`: Duração em minutos com duas casas decimais.
+  - `exited_at`: Timestamp ISO8601 da saída do estágio anterior.
+- **Armazenamento**:
+  1. No histórico da sessão (`session.context['stage_history']`), enriquecendo o registro do estágio percorrido.
+  2. Nos atributos customizados da conversa (`conversation.custom_attributes['kanban_last_stage_dwell_seconds']` e `kanban_last_stage_dwell_minutes`), permitindo filtros diretos no painel de relatórios do Chatwoot.
+  3. No payload de broadcast ActionCable para consumo em tempo real por dashboards operacionais.
+
+
 
