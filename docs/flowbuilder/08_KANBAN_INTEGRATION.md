@@ -41,3 +41,19 @@ O módulo Kanban do Flowbuilder conecta a automação conversacional diretamente
 - **Comportamento no Frontend**:
   - Os clientes e atendentes com o painel Kanban aberto escutam o canal WebSocket da conta e movem o cartão instantaneamente de coluna, eliminando requisições periódicas via polling e reduzindo a carga do servidor.
 
+---
+
+## 4. Sincronização Bidirecional e Gatilhos de Entrada (`Custom::Kanban::SyncService`)
+
+- **Objetivo**: Permitir que ações manuais ou automáticas nos cards do Kanban disparem ou retomem fluxos específicos.
+- **Serviço Responsável**: `custom/app/services/custom/kanban/sync_service.rb`.
+- **Invocação**: `Custom::Kanban::SyncService.handle_card_movement(conversation, new_stage_id, stage_name: nil)`.
+- **Regras de Negócio**:
+  1. Atualiza atributos customizados da conversa e emite evento WebSocket via `StageService`.
+  2. Busca fluxos publicados (`status: :published`) associados ao estágio (`trigger_type: 'kanban_stage_entered'`, `trigger_config['stage_id']`).
+  3. Caso encontre um fluxo compatível:
+     - Encerra graciosamente qualquer sessão ativa anterior da conversa (`status: :completed`).
+     - Instancia uma nova sessão (`Custom::FlowSession`) com o contexto `{ trigger: 'kanban_card_movement', stage_id: ... }`.
+     - Inicia a execução do grafo pelo nó inicial via `Custom::Flows::ExecutionEngine.process!(session)`.
+
+
