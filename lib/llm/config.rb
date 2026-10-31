@@ -32,10 +32,12 @@ module Llm::Config
     def bedrock?
       provider == BEDROCK_PROVIDER
     end
+    alias bedrock_provider? bedrock?
 
     def openai?
       provider == OPENAI_PROVIDER
     end
+    alias openai_provider? openai?
 
     private
 
@@ -87,8 +89,8 @@ module Llm::Config
       region = InstallationConfig.find_by(name: 'CAPTAIN_BEDROCK_REGION')&.value
 
       RubyLLM.configure do |c|
-        c.bedrock_access_key_id = access_key
-        c.bedrock_secret_access_key = secret_key
+        c.bedrock_api_key = access_key
+        c.bedrock_secret_key = secret_key
         c.bedrock_region = region
       end
     end
