@@ -1,7 +1,7 @@
 require 'ruby_llm'
 
 module Llm::Config
-  DEFAULT_MODEL = 'gpt-4.1-mini'.freeze
+  DEFAULT_MODEL = 'gpt-6-luna'.freeze
   OPENAI_PROVIDER = 'openai'.freeze
   BEDROCK_PROVIDER = 'bedrock'.freeze
 
@@ -12,78 +12,85 @@ module Llm::Config
 
     def initialize!
       return if @initialized
+      return mark_initialized unless provider_configured?
 
       configure_ruby_llm
-      @initialized = true
+      mark_initialized
+    rescue StandardError => e
+      Rails.logger.error "Failed to configure RubyLLM: #{e.message}"
+      mark_initialized
     end
 
     def reset!
       @initialized = false
     end
 
-    def bedrock_provider?
+    def provider
+      InstallationConfig.find_by(name: 'CAPTAIN_LLM_PROVIDER')&.value.presence || OPENAI_PROVIDER
+    end
+
+    def bedrock?
       provider == BEDROCK_PROVIDER
     end
 
-    def with_api_key(api_key, api_base: nil)
-      initialize!
-
-      # Bedrock authenticates with AWS credentials configured globally in
-      # configure_ruby_llm, not with a per-request API key, so we reuse the
-      # globally-configured context instead of overriding OpenAI settings.
-      return yield RubyLLM.context if bedrock_provider?
-
-      context = RubyLLM.context do |config|
-        config.openai_api_key = api_key
-        config.openai_api_base = api_base
-      end
-
-      yield context
+    def openai?
+      provider == OPENAI_PROVIDER
     end
 
     private
 
-    def configure_ruby_llm
-      RubyLLM.configure do |config|
-        config.model_registry_file = Rails.root.join('config/llm_models.json').to_s
-        config.logger = Rails.logger
+    def mark_initialized
+      @initialized = true
+    end
 
-        if provider == BEDROCK_PROVIDER
-          configure_bedrock(config)
-        else
-          configure_openai(config)
-        end
+    def provider_configured?
+      case provider
+      when BEDROCK_PROVIDER
+        bedrock_credentials_present?
+      else
+        openai_credentials_present?
       end
     end
 
-    def configure_openai(config)
-      config.openai_api_key = system_api_key if system_api_key.present?
-      config.openai_api_base = "#{openai_endpoint.chomp('/')}/v1" if openai_endpoint.present?
-      config.openai_protocol = :chat_completions
+    def openai_credentials_present?
+      api_key = InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_API_KEY')&.value
+      api_key.present?
     end
 
-    def configure_bedrock(config)
-      config.bedrock_api_key = installation_value('CAPTAIN_BEDROCK_ACCESS_KEY_ID')
-      config.bedrock_secret_key = installation_value('CAPTAIN_BEDROCK_SECRET_ACCESS_KEY')
-      config.bedrock_region = installation_value('CAPTAIN_BEDROCK_REGION')
-      session_token = installation_value('CAPTAIN_BEDROCK_SESSION_TOKEN')
-      config.bedrock_session_token = session_token if session_token.present?
+    def bedrock_credentials_present?
+      access_key = InstallationConfig.find_by(name: 'CAPTAIN_BEDROCK_ACCESS_KEY_ID')&.value
+      secret_key = InstallationConfig.find_by(name: 'CAPTAIN_BEDROCK_SECRET_ACCESS_KEY')&.value
+      region = InstallationConfig.find_by(name: 'CAPTAIN_BEDROCK_REGION')&.value
+
+      access_key.present? && secret_key.present? && region.present?
     end
 
-    def provider
-      installation_value('CAPTAIN_LLM_PROVIDER').presence&.downcase || OPENAI_PROVIDER
+    def configure_ruby_llm
+      case provider
+      when BEDROCK_PROVIDER
+        configure_bedrock
+      else
+        configure_openai
+      end
     end
 
-    def system_api_key
-      installation_value('CAPTAIN_OPEN_AI_API_KEY')
+    def configure_openai
+      api_key = InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_API_KEY')&.value
+      RubyLLM.configure do |c|
+        c.openai_api_key = api_key
+      end
     end
 
-    def openai_endpoint
-      installation_value('CAPTAIN_OPEN_AI_ENDPOINT')
-    end
+    def configure_bedrock
+      access_key = InstallationConfig.find_by(name: 'CAPTAIN_BEDROCK_ACCESS_KEY_ID')&.value
+      secret_key = InstallationConfig.find_by(name: 'CAPTAIN_BEDROCK_SECRET_ACCESS_KEY')&.value
+      region = InstallationConfig.find_by(name: 'CAPTAIN_BEDROCK_REGION')&.value
 
-    def installation_value(name)
-      InstallationConfig.find_by(name: name)&.value
+      RubyLLM.configure do |c|
+        c.bedrock_access_key_id = access_key
+        c.bedrock_secret_access_key = secret_key
+        c.bedrock_region = region
+      end
     end
   end
 end
