@@ -11,6 +11,7 @@ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import CustomNode from './components/CustomNode.vue';
 import BlockCatalog from './components/BlockCatalog.vue';
 import NodeConfigDrawer from './components/NodeConfigDrawer.vue';
+import WhatsAppSimulator from './components/WhatsAppSimulator.vue';
 
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
@@ -33,6 +34,7 @@ const edges = ref([]);
 
 const selectedNode = ref(null);
 const isDrawerOpen = ref(false);
+const isSimulatorOpen = ref(false);
 
 const nodeTypes = {
   start: markRaw(CustomNode),
@@ -198,6 +200,13 @@ const backToList = () => {
 
       <div class="flex items-center gap-2">
         <Button
+          label="Testar Fluxo"
+          icon="i-lucide-play"
+          variant="faint"
+          size="sm"
+          @click="isSimulatorOpen = true"
+        />
+        <Button
           label="Salvar Alterações"
           icon="i-lucide-save"
           variant="faint"
@@ -230,6 +239,14 @@ const backToList = () => {
         :node="selectedNode"
         @close="closeDrawer"
         @update="handleUpdateNode"
+      />
+
+      <!-- Simulador de WhatsApp -->
+      <WhatsAppSimulator
+        :is-open="isSimulatorOpen"
+        :nodes="nodes"
+        :edges="edges"
+        @close="isSimulatorOpen = false"
       />
 
       <VueFlow
