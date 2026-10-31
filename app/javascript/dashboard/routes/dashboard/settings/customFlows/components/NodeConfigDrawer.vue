@@ -7,6 +7,11 @@ defineOptions({
   name: 'NodeConfigDrawer',
 });
 
+const VAR_CONTACT_FIRST_NAME = '{{contact.first_name}}';
+const VAR_CONTACT_NAME = '{{contact.name}}';
+const VAR_CONTACT_PHONE = '{{contact.phone_number}}';
+const VAR_ACCOUNT_NAME = '{{account.name}}';
+
 const props = defineProps({
   node: {
     type: Object,
@@ -191,16 +196,16 @@ const onProviderChange = provider => {
           <button
             type="button"
             class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-            @click="appendVariable('text', '{{contact.first_name}}')"
+            @click="appendVariable('text', VAR_CONTACT_FIRST_NAME)"
           >
-            {{contact.first_name}}
+            {{ VAR_CONTACT_FIRST_NAME }}
           </button>
           <button
             type="button"
             class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-            @click="appendVariable('text', '{{contact.name}}')"
+            @click="appendVariable('text', VAR_CONTACT_NAME)"
           >
-            {{contact.name}}
+            {{ VAR_CONTACT_NAME }}
           </button>
         </div>
       </div>
@@ -223,16 +228,16 @@ const onProviderChange = provider => {
             <button
               type="button"
               class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-              @click="appendVariable('body', '{{contact.first_name}}')"
+              @click="appendVariable('body', VAR_CONTACT_FIRST_NAME)"
             >
-              {{contact.first_name}}
+              {{ VAR_CONTACT_FIRST_NAME }}
             </button>
             <button
               type="button"
               class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-              @click="appendVariable('body', '{{contact.name}}')"
+              @click="appendVariable('body', VAR_CONTACT_NAME)"
             >
-              {{contact.name}}
+              {{ VAR_CONTACT_NAME }}
             </button>
           </div>
         </div>
@@ -296,16 +301,16 @@ const onProviderChange = provider => {
             <button
               type="button"
               class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-              @click="appendVariable('body', '{{contact.first_name}}')"
+              @click="appendVariable('body', VAR_CONTACT_FIRST_NAME)"
             >
-              {{contact.first_name}}
+              {{ VAR_CONTACT_FIRST_NAME }}
             </button>
             <button
               type="button"
               class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-              @click="appendVariable('body', '{{contact.name}}')"
+              @click="appendVariable('body', VAR_CONTACT_NAME)"
             >
-              {{contact.name}}
+              {{ VAR_CONTACT_NAME }}
             </button>
           </div>
         </div>
@@ -504,23 +509,23 @@ const onProviderChange = provider => {
             <button
               type="button"
               class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-              @click="appendVariable('system_prompt', '{{contact.first_name}}')"
+              @click="appendVariable('system_prompt', VAR_CONTACT_FIRST_NAME)"
             >
-              {{contact.first_name}}
+              {{ VAR_CONTACT_FIRST_NAME }}
             </button>
             <button
               type="button"
               class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-              @click="appendVariable('system_prompt', '{{contact.name}}')"
+              @click="appendVariable('system_prompt', VAR_CONTACT_NAME)"
             >
-              {{contact.name}}
+              {{ VAR_CONTACT_NAME }}
             </button>
             <button
               type="button"
               class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-2 py-0.5 rounded font-mono transition-colors"
-              @click="appendVariable('system_prompt', '{{account.name}}')"
+              @click="appendVariable('system_prompt', VAR_ACCOUNT_NAME)"
             >
-              {{account.name}}
+              {{ VAR_ACCOUNT_NAME }}
             </button>
           </div>
         </div>
