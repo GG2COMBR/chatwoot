@@ -219,6 +219,8 @@ RSpec.describe Custom::Flows::ExecutionEngine do
     end
 
     it 'executes kanban_stage_change node by calling StageService' do
+      board = Custom::KanbanBoard.create!(account: account, name: 'Vendas', status_custom_attribute_key: 'etapa_kanban')
+      stage = Custom::KanbanStage.create!(account: account, custom_kanban_board: board, name: 'Lead Qualificado', slug: 'lead_qualificado')
       kanban_flow = Custom::Flow.create!(
         account: account,
         name: 'Kanban Stage Flow',
@@ -227,7 +229,7 @@ RSpec.describe Custom::Flows::ExecutionEngine do
           {
             id: 'node_stage',
             type: 'kanban_stage_change',
-            data: { stage_id: 'lead_qualificado', stage_name: 'Lead Qualificado' }
+            data: { stage_id: stage.id.to_s, stage_name: 'Lead Qualificado' }
           }
         ],
         edges: []
@@ -242,13 +244,14 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       expect(Custom::Kanban::StageService).to receive(:transition!).with(
         conversation,
         kanban_session,
-        'lead_qualificado',
+        stage.id.to_s,
         'Lead Qualificado'
       ).and_call_original
 
       described_class.process!(kanban_session)
 
-      expect(conversation.reload.custom_attributes['kanban_stage_id']).to eq('lead_qualificado')
+      expect(conversation.reload.custom_kanban_stage_id).to eq(stage.id)
+      expect(conversation.custom_attributes['etapa_kanban']).to eq('Lead Qualificado')
       expect(kanban_session.reload.context['last_kanban_transition']['status']).to eq('success')
     end
 
@@ -418,7 +421,7 @@ RSpec.describe Custom::Flows::ExecutionEngine do
           {
             id: 'node_add_labels',
             type: 'manage_labels',
-            data: { target: 'conversation', action: 'add', labels: ['vip', 'lead-qualificado'] }
+            data: { target: 'conversation', action: 'add', labels: %w[vip lead-qualificado] }
           }
         ],
         edges: []

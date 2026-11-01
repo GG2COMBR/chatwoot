@@ -69,6 +69,7 @@ class Custom::Api::V1::FlowsController < Api::V1::Accounts::BaseController
       {
         id: board.id.to_s,
         name: board.name,
+        status_custom_attribute_key: board.status_custom_attribute_key,
         stages: board.custom_kanban_stages.map do |stg|
           { id: stg.id.to_s, name: stg.name, slug: stg.slug, color: stg.color }
         end
