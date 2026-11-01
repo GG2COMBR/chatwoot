@@ -304,9 +304,9 @@ class Custom::SeedService
           step_status_value: 'aguardando_pagamento',
           body: "📦 Resumo do Pedido:\n- 2x Resina Filtek Z350 XT A2 3M\n- Frete Sedex: R$ 15,00\nTotal: R$ 195,00 (ou R$ 185,25 no Pix)\n\nComo deseja pagar?",
           buttons: [
-            { id: 'pay_pix', title: '⚡ Pix (5% OFF)' },
-            { id: 'pay_boleto', title: '📄 Boleto Bancário' },
-            { id: 'pay_human', title: '👤 Falar com Vendedor' }
+            { id: 'pay_pix', title: 'Pix (5% OFF)' },
+            { id: 'pay_boleto', title: 'Boleto Bancário' },
+            { id: 'pay_human', title: 'Falar com Vendedor' }
           ]
         }
       },

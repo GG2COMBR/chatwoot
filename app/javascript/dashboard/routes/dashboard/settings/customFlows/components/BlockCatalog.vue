@@ -129,7 +129,7 @@ const availableBlocks = [
   },
   {
     type: 'async_api',
-    label: '⚡ Processamento Assíncrono / API',
+    label: 'Processamento Assíncrono / API',
     icon: 'i-lucide-database',
     color: 'hover:border-cyan-500/50 hover:bg-cyan-500/5 text-cyan-600 dark:text-cyan-400',
     defaultData: {
