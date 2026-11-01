@@ -63,31 +63,22 @@ class Custom::Api::V1::FlowsController < Api::V1::Accounts::BaseController
   end
 
   def kanban_options
-    boards = []
+    account_boards = Custom::KanbanBoard.where(account_id: Current.account.id).includes(:custom_kanban_stages)
 
-    if defined?(KanbanBoard) && ActiveRecord::Base.connection.table_exists?(:kanban_boards)
-      account_boards = KanbanBoard.where(account_id: Current.account.id, active: true).order(:position, :name)
-      boards = account_boards.map do |board|
-        stages = if defined?(KanbanStage) && board.respond_to?(:kanban_stages)
-                   board.kanban_stages.where(active: true).order(:position, :name).map do |stg|
-                     { id: stg.id.to_s, name: stg.name, color: stg.try(:color) || '#3b82f6' }
-                   end
-                 else
-                   []
-                 end
-
-        {
-          id: board.id.to_s,
-          name: board.name,
-          stages: stages
-        }
-      end
+    boards = account_boards.map do |board|
+      {
+        id: board.id.to_s,
+        name: board.name,
+        stages: board.custom_kanban_stages.map do |stg|
+          { id: stg.id.to_s, name: stg.name, slug: stg.slug, color: stg.color }
+        end
+      }
     end
 
-    render json: { payload: boards }
+    render json: { payload: { funnels: boards } }
   rescue StandardError => e
     Rails.logger.warn("[Custom::Api::V1::FlowsController] kanban_options error: #{e.message}")
-    render json: { payload: [] }
+    render json: { payload: { funnels: [] } }
   end
 
   private

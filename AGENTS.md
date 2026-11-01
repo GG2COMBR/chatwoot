@@ -166,3 +166,24 @@ Practical checklist for any change impacting core logic or public APIs
 - **Vue Flow Headless**: O `@vue-flow/core` é utilizado estritamente como motor de grafo headless. Todos os nós, formulários e painéis laterais utilizam o design nativo do Chatwoot.
 - **Linguagem Natural**: Todos os blocos visuais devem ter nomes amigáveis em português claro (*"💬 Enviar Mensagem"*, *"🔘 Pergunta com Botões"*, *"⏰ Horário de Atendimento"*, *"👤 Transferir para Equipe"*).
 
+## 5. Proibição Terminante de Soluções Ad-Hoc & Modelo Relacional Canônico
+- **Tabelas e Models Formais**: Qualquer entidade de negócio proprietária (como Kanban, Flowbuilder, etc.) DEVE possuir tabelas relacionais com migrations sob `custom/db/migrate/` com prefixo `custom_` e models ActiveRecord sob `custom/app/models/custom/`.
+- **Zero Queries Cruas de JSONB para Lógica de Domínio**: É expressamente PROIBIDO fazer queries manuais em campos JSONB (ex: `trigger_config ->> 'stage_id'`), checagens frágeis com `defined?(PluginModel)` ou usar `custom_attributes` como substituto de chaves estrangeiras.
+- **Motor de Automações Unificado**: Todos os disparos e transições de eventos DEVEM passar pelo motor nativo de automações (`AutomationRule`, `ConditionsFilterService`, `Custom::FlowListener`). Proibido criar serviços paralelos de sincronização (`SyncService`) que ignorem o ciclo de vida e eventos do Chatwoot.
+
+## 6. Modo Enterprise Edition Self-Hosted & Compatibilidade de Limites
+- **Plano Enterprise Nativo**: Toda instalação opera no modo Enterprise oficial (`INSTALLATION_PRICING_PLAN = 'enterprise'`), permitindo acesso irrestrito a SLA, Custom Roles, Audit Logs e Automações avançadas sem hard forks.
+- **Guard de Cotas e Limites**: O initializer `custom/config/initializers/enterprise_limits.rb` DEVE ser preservado para pular o filtro `check_cloud_env` exclusivamente na action `:limits` de `Enterprise::Api::V1::AccountsController`, garantindo `200 OK` e cotas ilimitadas sem quebrar o console do navegador (`includes.js`).
+
+## 7. Telemetria e Privacidade de Dados (Self-Hosted Estrito)
+- **Bloqueio de Telemetria Upstream**: O envio de telemetria para servidores externos do Chatwoot Hub é TERMINANTEMENTE BLOQUEADO através de `DISABLE_TELEMETRY=true`.
+- **Preservação Obrigatória**: É obrigatório manter `DISABLE_TELEMETRY=true` em `.env`, `.env.example`, `docker-compose.override.yaml` e no script `bin/setup_dev.sh`. Nossa telemetria é 100% privada e local (OpenTelemetry / Grafana).
+
+## 8. Persistência Desacoplada e Segura do AWS Bedrock
+- **Segredo Não-Versionado**: Credenciais de AWS Bedrock NUNCA devem ser commitadas no repositório. Devem residir no arquivo local `custom/config/bedrock.local.env` (estritamente protegido pelo `.gitignore`).
+- **Auto-Backup & Restauração no Reset**: O script `bin/setup_dev.sh` faz dump automático das credenciais ativas antes de qualquer `db:drop`, e o `Custom::SeedService` restaura essas configurações no banco (`installation_configs`) e no `RubyLLM` na inicialização.
+
+## 9. Automação de Instalação e Reinstalação Dev (`bin/setup_dev.sh`)
+- **Setup em Comando Único**: O script `bin/setup_dev.sh` é o padrão canônico para desenvolvedores e agentes. Suporta a flag `--reset` para reconstrução limpa e idempotente de todo o banco de dados, migrations, Enterprise Edition, Kanban e fluxos URA.
+
+

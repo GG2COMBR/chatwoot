@@ -8,8 +8,10 @@ class Custom::Kanban::StageService
   def initialize(conversation, session, stage_id, stage_name = nil)
     @conversation = conversation
     @session = session
-    @stage_id = stage_id.to_s
-    @stage_name = stage_name.presence || @stage_id.humanize
+    @input_stage_id = stage_id.to_s
+    @kanban_stage = resolve_kanban_stage
+    @stage_id = @kanban_stage&.id&.to_s || @input_stage_id
+    @stage_name = stage_name.presence || @kanban_stage&.name || @input_stage_id.humanize
   end
 
   def transition!
@@ -24,12 +26,27 @@ class Custom::Kanban::StageService
       status: 'success',
       stage_id: @stage_id,
       stage_name: @stage_name,
+      kanban_stage_id: @kanban_stage&.id,
       updated_at: now,
       dwell_time: dwell
     }
   end
 
   private
+
+  def resolve_kanban_stage
+    return nil unless @conversation&.account_id && @input_stage_id.present?
+
+    stages = Custom::KanbanStage.where(account_id: @conversation.account_id)
+    if @input_stage_id.match?(/\A\d+\z/)
+      stages.find_by(id: @input_stage_id)
+    else
+      stages.find_by(slug: @input_stage_id)
+    end
+  rescue StandardError => e
+    Rails.logger.warn("[Custom::Kanban::StageService] Failed to resolve kanban stage: #{e.message}")
+    nil
+  end
 
   def calculate_dwell_time(timestamp)
     prev_entered = last_entered_timestamp
@@ -66,6 +83,7 @@ class Custom::Kanban::StageService
       attributes['kanban_last_stage_dwell_minutes'] = dwell[:minutes]
     end
 
+    @conversation.custom_kanban_stage_id = @kanban_stage&.id if @kanban_stage
     @conversation.custom_attributes = attributes
     @conversation.save!
   end
@@ -102,6 +120,7 @@ class Custom::Kanban::StageService
         conversation_id: @conversation.id,
         stage_id: @stage_id,
         stage_name: @stage_name,
+        kanban_stage_id: @kanban_stage&.id,
         updated_at: timestamp,
         dwell_time: dwell
       }

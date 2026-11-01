@@ -7,7 +7,7 @@ class Custom::FlowSession < ApplicationRecord
   belongs_to :custom_flow,
              class_name: 'Custom::Flow',
              inverse_of: :custom_flow_sessions
-  belongs_to :conversation
+  belongs_to :conversation, class_name: '::Conversation'
 
   enum :status, {
     active: 0,
