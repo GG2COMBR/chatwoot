@@ -64,6 +64,19 @@ RSpec.describe 'Custom Kanban Cards API', type: :request do
       titles_all = response.parsed_body['payload'].map { |c| c['title'] }
       expect(titles_all).to include('Negócio Antigo Ganho')
     end
+
+    it 'filters by conversation_id and bypasses rolling window' do
+      conversation = create(:conversation, account: account, contact: contact)
+      card.update!(conversation: conversation, status: :won, won_lost_at: 40.days.ago)
+
+      get "/api/v1/accounts/#{account.id}/kanban_boards/#{board.id}/cards?conversation_id=#{conversation.id}",
+          headers: admin.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(response.parsed_body['payload'].size).to eq(1)
+      expect(response.parsed_body['payload'].first['id']).to eq(card.id)
+    end
   end
 
   describe 'POST /api/v1/accounts/:account_id/kanban_boards/:board_id/cards' do

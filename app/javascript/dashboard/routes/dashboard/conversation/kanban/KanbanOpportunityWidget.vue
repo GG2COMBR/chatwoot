@@ -33,27 +33,47 @@ const loadData = async () => {
 
   isLoading.value = true;
   try {
-    const boardsRes = await customKanban.getBoards();
-    boards.value = boardsRes.data.payload || [];
+    if (!boards.value.length) {
+      const boardsRes = await customKanban.getBoards();
+      boards.value = boardsRes.data.payload || [];
+    }
 
     if (!boards.value.length) {
       isLoading.value = false;
       return;
     }
 
-    currentBoard.value = boards.value[0];
-    const stagesRes = await customKanban.getStages(currentBoard.value.id);
-    stages.value = stagesRes.data.payload || [];
+    if (!currentBoard.value) {
+      currentBoard.value = boards.value[0];
+    }
 
-    const cardsRes = await customKanban.getCards(currentBoard.value.id, {});
-    const allCards = cardsRes.data.payload || [];
-    currentCard.value =
-      allCards.find(c => c.conversation?.id === Number(props.conversationId)) ||
-      null;
+    const [stagesRes, cardsRes] = await Promise.all([
+      customKanban.getStages(currentBoard.value.id),
+      customKanban.getCards(currentBoard.value.id, {
+        conversation_id: props.conversationId,
+        completed_days: 'all',
+      }),
+    ]);
+
+    stages.value = stagesRes.data.payload || [];
+    if (stages.value.length && !selectedStageId.value) {
+      selectedStageId.value = stages.value[0].id;
+    }
+
+    const conversationCards = cardsRes.data.payload || [];
+    currentCard.value = conversationCards[0] || null;
   } catch (error) {
     // silencioso para não poluir o painel caso a api retorne vazio
   } finally {
     isLoading.value = false;
+  }
+};
+
+const handleBoardChange = newBoardId => {
+  const found = boards.value.find(b => b.id === Number(newBoardId));
+  if (found) {
+    currentBoard.value = found;
+    loadData();
   }
 };
 
@@ -144,7 +164,18 @@ const handleCreateOpportunity = async () => {
           >
             {{ $t('KANBAN.WIDGET.FUNNEL_LABEL') }}
           </span>
+          <select
+            v-if="boards.length > 1"
+            :value="currentBoard?.id"
+            class="text-[11px] font-medium text-woot-600 dark:text-woot-400 bg-transparent border-0 cursor-pointer focus:ring-0 p-0"
+            @change="e => handleBoardChange(Number(e.target.value))"
+          >
+            <option v-for="b in boards" :key="b.id" :value="b.id">
+              {{ b.name }}
+            </option>
+          </select>
           <span
+            v-else
             class="text-[11px] font-medium text-woot-600 dark:text-woot-400"
           >
             {{ currentBoard?.name }}
@@ -181,8 +212,9 @@ const handleCreateOpportunity = async () => {
         <div>
           <span
             class="block text-[10px] text-slate-400 uppercase font-semibold"
-            >{{ $t('KANBAN.WIDGET.VALUE_LABEL') }}</span
           >
+            {{ $t('KANBAN.WIDGET.VALUE_LABEL') }}
+          </span>
           <span class="font-bold text-emerald-600 dark:text-emerald-400">
             {{
               new Intl.NumberFormat('pt-BR', {
@@ -196,8 +228,9 @@ const handleCreateOpportunity = async () => {
         <div>
           <span
             class="block text-[10px] text-slate-400 uppercase font-semibold"
-            >{{ $t('KANBAN.WIDGET.STATUS_LABEL') }}</span
           >
+            {{ $t('KANBAN.WIDGET.STATUS_LABEL') }}
+          </span>
           <select
             :value="currentCard.status"
             :disabled="isUpdating"
@@ -231,6 +264,23 @@ const handleCreateOpportunity = async () => {
 
     <!-- Se NÃO existe oportunidade para esta conversa -->
     <div v-else class="flex flex-col gap-2.5">
+      <div v-if="boards.length > 1" class="flex items-center justify-between">
+        <span
+          class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
+        >
+          {{ $t('KANBAN.WIDGET.FUNNEL_LABEL') }}
+        </span>
+        <select
+          :value="currentBoard?.id"
+          class="text-[11px] font-medium text-woot-600 dark:text-woot-400 bg-transparent border-0 cursor-pointer focus:ring-0 p-0"
+          @change="e => handleBoardChange(Number(e.target.value))"
+        >
+          <option v-for="b in boards" :key="b.id" :value="b.id">
+            {{ b.name }}
+          </option>
+        </select>
+      </div>
+
       <p class="text-xs text-slate-500 dark:text-slate-400">
         {{ $t('KANBAN.WIDGET.NO_CARD_DESC') }}
       </p>
