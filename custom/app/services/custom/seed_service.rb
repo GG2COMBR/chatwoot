@@ -23,6 +23,7 @@ class Custom::SeedService
       inbox = setup_inbox(account, [admin, vendas_agent, sac_agent])
       flow = setup_sample_flow(account)
       purchase_flow = setup_purchase_journey_flow(account, stages)
+      setup_demo_kanban_cards(account, board, stages, admin, vendas_agent)
     else
       teams = []
       inbox = nil
@@ -549,5 +550,83 @@ class Custom::SeedService
       { id: 'edge_2', source: 'node_welcome', target: 'node_sac', condition: { button_id: 'btn_sac' } },
       { id: 'edge_3', source: 'node_welcome', target: 'node_ai_fallback', condition: { button_id: 'btn_atendente' } }
     ]
+  end
+
+  def setup_demo_kanban_cards(account, board, stages, admin, vendas_agent)
+    lead_stage = stages.find { |s| s.slug == 'lead_qualificado' } || stages[0]
+    orcamento_stage = stages.find { |s| s.slug == 'orcamento_enviado' } || stages[1]
+    pix_stage = stages.find { |s| s.slug == 'aguardando_pix' } || stages[2]
+    ganho_stage = stages.find { |s| s.slug == 'concluido' } || stages[3]
+
+    cards_data = [
+      {
+        title: 'Implante Unitário Neodent Titânio',
+        value: 2400.0,
+        stage: lead_stage,
+        priority: 'high',
+        status: 'open',
+        contact_name: 'Dra. Mariana Costa',
+        contact_email: 'mariana.costa@odontoexemplo.com.br',
+        contact_phone: '+5511988887771',
+        assignee: vendas_agent
+      },
+      {
+        title: 'Kit Resinas Compostas Filtek 3M',
+        value: 1850.0,
+        stage: orcamento_stage,
+        priority: 'medium',
+        status: 'open',
+        contact_name: 'Dr. Roberto Albuquerque',
+        contact_email: 'roberto.albuquerque@clinicaexemplo.com.br',
+        contact_phone: '+5511988887772',
+        assignee: vendas_agent
+      },
+      {
+        title: 'Motor Cirúrgico Traus SUS 10',
+        value: 8900.0,
+        stage: pix_stage,
+        priority: 'urgent',
+        status: 'open',
+        contact_name: 'Dra. Camila Toledo',
+        contact_email: 'camila.toledo@institutoexemplo.com.br',
+        contact_phone: '+5511988887773',
+        assignee: admin
+      },
+      {
+        title: 'Autoclave Cristófoli 12L Inox',
+        value: 4200.0,
+        stage: ganho_stage,
+        priority: 'medium',
+        status: 'won',
+        contact_name: 'Dr. Felipe Gusmão',
+        contact_email: 'felipe.gusmao@consultorioexemplo.com.br',
+        contact_phone: '+5511988887774',
+        assignee: vendas_agent
+      }
+    ]
+
+    cards_data.each do |data|
+      contact = Contact.find_or_initialize_by(
+        account: account,
+        email: data[:contact_email]
+      )
+      contact.name = data[:contact_name]
+      contact.phone_number = data[:contact_phone]
+      contact.save!
+
+      card = Custom::KanbanCard.find_or_initialize_by(
+        account: account,
+        custom_kanban_board: board,
+        title: data[:title]
+      )
+      card.custom_kanban_stage = data[:stage]
+      card.contact = contact
+      card.value = data[:value]
+      card.priority = data[:priority]
+      card.status = data[:status]
+      card.save!
+
+      card.assignees = [data[:assignee]] if data[:assignee].present?
+    end
   end
 end

@@ -1,0 +1,90 @@
+{
+  "KANBAN": {
+    "HEADER": {
+      "TITLE": "Kanban CRM",
+      "SUBTITLE": "• Visual opportunity management and sales funnel",
+      "NEW_BOARD": "+ New Funnel",
+      "NEW_OPPORTUNITY": "+ New Opportunity",
+      "SEARCH_PLACEHOLDER": "Search opportunity...",
+      "STATUS_ALL": "Status: All",
+      "STATUS_OPEN": "Open",
+      "STATUS_WON": "Won",
+      "STATUS_LOST": "Lost",
+      "TOTAL_OPPORTUNITIES": "Total Opportunities:",
+      "PIPELINE_VALUE": "Pipeline Value:",
+      "CLOSED_WON": "Won",
+      "SYNCED_WITH": "Synced with conversation attribute:"
+    },
+    "EMPTY_STATE": {
+      "TITLE": "No Kanban Board Found",
+      "DESCRIPTION": "Create your first sales funnel to manage leads, proposals, deals and automatically sync with WhatsApp chats and Flowbuilder.",
+      "BUTTON": "Create First Funnel",
+      "NO_STAGES_TITLE": "No stages configured in this funnel",
+      "NO_STAGES_DESCRIPTION": "Add stages for your sales process (e.g. Lead, Qualification, Proposal, Won).",
+      "ADD_STAGE_BUTTON": "Add First Stage",
+      "ADD_NEW_STAGE": "Add New Stage",
+      "STAGE_NAME_LABEL": "Stage Name *",
+      "STAGE_NAME_PLACEHOLDER": "e.g. Proposal Sent, Meeting Booked...",
+      "STAGE_COLOR_LABEL": "Stage Color"
+    },
+    "COLUMN": {
+      "TOTAL": "Total:",
+      "ADD_OPPORTUNITY": "Add Opportunity",
+      "NEW_OPP_TOOLTIP": "New Opportunity in this stage"
+    },
+    "CARD": {
+      "PRIORITY_URGENT": "Urgent",
+      "PRIORITY_HIGH": "High",
+      "PRIORITY_MEDIUM": "Medium",
+      "PRIORITY_LOW": "Low",
+      "STATUS_WON": "Won",
+      "STATUS_LOST": "Lost"
+    },
+    "MODAL": {
+      "CREATE_TITLE": "New Opportunity",
+      "EDIT_TITLE": "Opportunity Details",
+      "SAVE_BUTTON": "Save Opportunity",
+      "TAB_DETAILS": "Details",
+      "TAB_NOTES": "Notes & History",
+      "TITLE_LABEL": "Opportunity Title *",
+      "TITLE_PLACEHOLDER": "e.g. Annual Contract, Dental Implant...",
+      "VALUE_LABEL": "Estimated Value ($)",
+      "STAGE_LABEL": "Funnel Stage *",
+      "PRIORITY_LABEL": "Priority",
+      "STATUS_LABEL": "Deal Status",
+      "DESCRIPTION_LABEL": "Description / Notes",
+      "DESCRIPTION_PLACEHOLDER": "Details about the deal or customer requirements...",
+      "LINKED_CONVERSATION": "Linked Conversation",
+      "OPEN_CONVERSATION": "Open Conversation",
+      "DELETE_CARD": "Delete Opportunity",
+      "DELETE_CONFIRM": "Are you sure you want to delete this opportunity?",
+      "ADD_NOTE_PLACEHOLDER": "Add an internal note or deal update...",
+      "SAVE_NOTE_BUTTON": "Save Note",
+      "NO_NOTES": "No notes recorded yet."
+    },
+    "BOARD_MODAL": {
+      "TITLE": "New CRM Funnel",
+      "DESCRIPTION": "Create a new sales and customer relationship funnel for your team.",
+      "NAME_LABEL": "Funnel Name *",
+      "NAME_PLACEHOLDER": "e.g. Sales Funnel, Support Pipeline...",
+      "DESC_LABEL": "Description (optional)",
+      "DESC_PLACEHOLDER": "Purpose of this funnel...",
+      "SYNC_ATTR_LABEL": "Link to Conversation Custom Attribute",
+      "SYNC_ATTR_NONE": "None (internal CRM management only)",
+      "SYNC_ATTR_HELP": "If selected, moving cards in Kanban will update the conversation attribute and vice versa.",
+      "AUTO_CREATE_CARDS": "Automatically create cards for new conversations",
+      "SUBMIT_BUTTON": "Create Funnel"
+    },
+    "WIDGET": {
+      "LOADING": "Loading CRM...",
+      "FUNNEL_LABEL": "Funnel",
+      "STAGE_LABEL": "Current Stage",
+      "VALUE_LABEL": "Value",
+      "STATUS_LABEL": "Status",
+      "VIEW_BOARD": "View on Kanban Board",
+      "NO_CARD_DESC": "This conversation does not have a linked CRM deal yet.",
+      "TITLE_PLACEHOLDER": "e.g. Deal with",
+      "CREATE_BUTTON": "+ Create Opportunity"
+    }
+  }
+}

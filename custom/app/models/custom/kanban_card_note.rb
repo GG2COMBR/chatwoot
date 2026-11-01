@@ -9,5 +9,13 @@ class Custom::KanbanCardNote < ApplicationRecord
 
   validates :content, presence: true
 
+  before_validation :set_account, on: :create
+
   default_scope { order(created_at: :asc) }
+
+  private
+
+  def set_account
+    self.account_id ||= custom_kanban_card&.account_id
+  end
 end
