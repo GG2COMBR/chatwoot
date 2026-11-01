@@ -1,8 +1,9 @@
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import languages from 'dashboard/components/widgets/conversation/advancedFilterItems/languages';
 import countries from 'shared/constants/countries';
 import { useStoreGetters, useMapGetter } from 'dashboard/composables/store';
+import CustomFlowsAPI from 'dashboard/api/customFlows';
 
 import {
   getActionOptions,
@@ -112,6 +113,28 @@ export default function useAutomationValues() {
     });
   };
 
+  const flows = ref([]);
+  const isFetchingFlows = ref(false);
+
+  const fetchFlows = async () => {
+    if (isFetchingFlows.value) return;
+    isFetchingFlows.value = true;
+    try {
+      const response = await CustomFlowsAPI.get();
+      const list = response.data?.payload || [];
+      flows.value = list
+        .filter(f => f.status === 'published')
+        .map(f => ({
+          id: f.id,
+          name: f.name,
+        }));
+    } catch {
+      flows.value = [];
+    } finally {
+      isFetchingFlows.value = false;
+    }
+  };
+
   /**
    * Gets the action dropdown values for a given type.
    * @param {string} type - The type of action.
@@ -129,6 +152,10 @@ export default function useAutomationValues() {
       ];
     }
 
+    if (type === 'trigger_flow' && flows.value.length === 0) {
+      fetchFlows();
+    }
+
     return getActionOptions({
       agents: agentsList,
       labels: labels.value,
@@ -138,6 +165,7 @@ export default function useAutomationValues() {
       type,
       addNoneToListFn: addNoneToList,
       priorityOptions: priorityOptions.value,
+      flows: flows.value,
     });
   };
 
@@ -156,5 +184,7 @@ export default function useAutomationValues() {
     labels,
     teams,
     slaPolicies,
+    flows,
+    fetchFlows,
   };
 }

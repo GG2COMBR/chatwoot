@@ -127,7 +127,7 @@ class Custom::SeedService
     flow = Custom::Flow.find_or_initialize_by(account: account, name: 'Fluxo Geral de Atendimento GG2')
     flow.description = 'URA Comercial e Suporte com botões interativos e IA Bedrock'
     flow.status = :published
-    flow.trigger_type = 'default'
+    flow.trigger_type = 'automation'
     flow.nodes = sample_nodes
     flow.edges = sample_edges
     flow.save!
@@ -203,7 +203,7 @@ class Custom::SeedService
     flow = Custom::Flow.find_or_initialize_by(account: account, name: '🛍️ Jornada de Compra Completa — E-commerce & URA')
     flow.description = 'Fluxo de vendas integrado ao Magento: IA Slot Filling, Consulta API, Try-Catch, Pix Copia-e-Cola e Kanban'
     flow.status = :published
-    flow.trigger_type = 'default'
+    flow.trigger_type = 'automation'
     flow.trigger_config = { 'status_custom_attribute_key' => 'etapa_fluxo' }
     flow.nodes = purchase_journey_nodes
     flow.edges = purchase_journey_edges

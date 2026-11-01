@@ -30,7 +30,6 @@ const isSubmitting = ref(false);
 const isCreatingAttribute = ref(false);
 const newFlowName = ref('');
 const newFlowDescription = ref('');
-const newFlowTrigger = ref('default');
 const newFlowStatusAttrKey = ref('etapa_fluxo');
 
 const fetchFlows = async () => {
@@ -84,7 +83,6 @@ const filteredFlows = computed(() => {
 const openCreateModal = () => {
   newFlowName.value = '';
   newFlowDescription.value = '';
-  newFlowTrigger.value = 'default';
   newFlowStatusAttrKey.value = 'etapa_fluxo';
   showCreateModal.value = true;
 };
@@ -102,7 +100,7 @@ const createFlow = async () => {
       custom_flow: {
         name: newFlowName.value.trim(),
         description: newFlowDescription.value.trim(),
-        trigger_type: newFlowTrigger.value,
+        trigger_type: 'automation',
         trigger_config: {
           status_custom_attribute_key: newFlowStatusAttrKey.value.trim(),
         },
@@ -171,7 +169,7 @@ const formatTrigger = trigger => {
   if (trigger === 'kanban_stage_entered' || trigger === 'kanban_stage') {
     return 'Gatilho Kanban';
   }
-  return 'WhatsApp Padrão';
+  return 'Automações & Eventos';
 };
 
 const formatDate = dateString => {
@@ -373,15 +371,12 @@ const formatDate = dateString => {
               />
             </div>
 
-            <div>
-              <label class="block text-xs font-medium text-n-slate-11 mb-1">Gatilho de Disparo</label>
-              <select
-                v-model="newFlowTrigger"
-                class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
-              >
-                <option value="default">WhatsApp Padrão (Primeira Mensagem)</option>
-                <option value="kanban_stage_entered">Gatilho Kanban (Entrada de Estágio)</option>
-              </select>
+            <div class="p-3 rounded-lg border border-n-weak bg-n-alpha-1 flex items-start gap-2.5 text-xs text-n-slate-11">
+              <Icon icon="i-lucide-zap" class="size-4 text-n-brand shrink-0 mt-0.5" />
+              <div>
+                <strong class="text-n-slate-12 block font-medium">Disparo por Automações & Eventos</strong>
+                Dispare este fluxo de forma flexível criando regras em <span class="text-n-brand font-medium">Configurações &gt; Automações</span> (por caixa de entrada, palavras-chave ou etiquetas) ou associe-o a estágios do Kanban.
+              </div>
             </div>
 
             <div>
