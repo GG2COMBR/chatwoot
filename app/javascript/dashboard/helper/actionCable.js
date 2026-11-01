@@ -74,6 +74,8 @@ class ActionCableConnector extends BaseActionCableConnector {
       'voice_call.outbound_connected': this.onVoiceCallOutboundConnected,
       'voice_call.outbound_accepted': this.onVoiceCallOutboundAccepted,
       'voice_call.ended': this.onVoiceCallEnded,
+      'kanban.card_moved': this.onKanbanCardMoved,
+      'kanban.stage_changed': this.onKanbanCardMoved,
     };
   }
 
@@ -537,6 +539,11 @@ class ActionCableConnector extends BaseActionCableConnector {
       }
     }
     useCallsStore().removeCall(data.call_id);
+  };
+
+  // eslint-disable-next-line class-methods-use-this
+  onKanbanCardMoved = data => {
+    emitter.emit(BUS_EVENTS.KANBAN_CARD_MOVED, data);
   };
 }
 

@@ -2,6 +2,6 @@
 
 module Custom::AsyncDispatcher
   def listeners
-    super + [Custom::FlowListener.instance]
+    super + [Custom::FlowListener.instance, Custom::KanbanListener.instance]
   end
 end

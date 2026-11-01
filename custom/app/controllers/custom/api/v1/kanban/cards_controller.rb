@@ -59,14 +59,21 @@ class Custom::Api::V1::Kanban::CardsController < Custom::Api::V1::Kanban::BaseCo
 
   def filter_cards(scope)
     cards = scope.includes(:contact, :conversation, :assignees, :custom_kanban_stage)
-    cards = cards.where(custom_kanban_stage_id: params[:stage_id]) if params[:stage_id].present?
-    cards = cards.where(status: params[:status]) if params[:status].present?
+    cards = apply_attribute_filters(cards)
     cards = cards.where('title ILIKE ?', "%#{params[:query]}%") if params[:query].present?
     apply_completed_window(cards)
   end
 
+  def apply_attribute_filters(scope)
+    scope = scope.where(custom_kanban_stage_id: params[:stage_id]) if params[:stage_id].present?
+    scope = scope.where(status: params[:status]) if params[:status].present?
+    scope = scope.where(conversation_id: params[:conversation_id]) if params[:conversation_id].present?
+    scope = scope.where(contact_id: params[:contact_id]) if params[:contact_id].present?
+    scope
+  end
+
   def apply_completed_window(scope)
-    return scope if params[:completed_days] == 'all'
+    return scope if bypass_completed_window?
 
     days = (params[:completed_days].presence || 14).to_i
     open_status = Custom::KanbanCard.statuses[:open]
@@ -75,6 +82,10 @@ class Custom::Api::V1::Kanban::CardsController < Custom::Api::V1::Kanban::BaseCo
       open_status,
       days.days.ago
     )
+  end
+
+  def bypass_completed_window?
+    params[:completed_days] == 'all' || (params[:completed_days].blank? && (params[:conversation_id].present? || params[:contact_id].present?))
   end
 
   def fetch_board

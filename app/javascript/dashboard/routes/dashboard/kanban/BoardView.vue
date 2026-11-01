@@ -1,7 +1,9 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAlert } from 'dashboard/composables';
+import { emitter } from 'shared/helpers/mitt';
+import { BUS_EVENTS } from 'shared/constants/busEvents';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Input from 'dashboard/components-next/input/Input.vue';
 import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
@@ -73,6 +75,26 @@ watch(
 
 watch([searchQuery, statusFilter, completedDays], () => {
   loadBoardData();
+});
+
+const handleRemoteCardMoved = data => {
+  if (!data || (data.board_id && data.board_id !== Number(activeBoardId.value)))
+    return;
+  const targetCard = cards.value.find(c => c.id === data.card_id);
+  if (targetCard) {
+    targetCard.stage_id = data.stage_id;
+    if (data.position !== undefined) targetCard.position = data.position;
+  } else {
+    loadBoardData();
+  }
+};
+
+onMounted(() => {
+  emitter.on(BUS_EVENTS.KANBAN_CARD_MOVED, handleRemoteCardMoved);
+});
+
+onUnmounted(() => {
+  emitter.off(BUS_EVENTS.KANBAN_CARD_MOVED, handleRemoteCardMoved);
 });
 
 const filteredCardsByStage = stageId => {

@@ -30,6 +30,13 @@ class Custom::Api::V1::Kanban::StagesController < Custom::Api::V1::Kanban::BaseC
   end
 
   def destroy
+    if @stage.custom_kanban_cards.exists?
+      render json: {
+        error: 'Não é possível excluir um estágio que possui oportunidades vinculadas. Mova-as antes de excluir.'
+      }, status: :unprocessable_entity
+      return
+    end
+
     @stage.destroy!
     head :no_content
   end
@@ -37,7 +44,8 @@ class Custom::Api::V1::Kanban::StagesController < Custom::Api::V1::Kanban::BaseC
   def reorder
     stage_ids = params[:stage_ids] || []
     stage_ids.each_with_index do |id, index|
-      @board.custom_kanban_stages.where(id: id).update_all(position: index)
+      stage = @board.custom_kanban_stages.find_by(id: id)
+      stage&.update(position: index)
     end
     render json: { status: 'success' }
   end
