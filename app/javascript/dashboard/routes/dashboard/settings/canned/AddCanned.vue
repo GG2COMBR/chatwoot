@@ -31,12 +31,22 @@ export default {
     return {
       shortCode: '',
       content: this.responseContent || '',
+      visibilityType: 'public',
+      selectedTeamIds: [],
       addCanned: {
         showLoading: false,
         message: '',
       },
       show: true,
     };
+  },
+  computed: {
+    teams() {
+      return this.$store.getters['teams/getTeams'] || [];
+    },
+  },
+  mounted() {
+    this.$store.dispatch('teams/get');
   },
   validations: {
     shortCode: {
@@ -51,6 +61,8 @@ export default {
     resetForm() {
       this.shortCode = '';
       this.content = '';
+      this.visibilityType = 'public';
+      this.selectedTeamIds = [];
       this.v$.shortCode.$reset();
       this.v$.content.$reset();
     },
@@ -62,6 +74,8 @@ export default {
         .dispatch('createCannedResponse', {
           short_code: this.shortCode,
           content: this.content,
+          team_ids:
+            this.visibilityType === 'restricted' ? this.selectedTeamIds : [],
         })
         .then(() => {
           // Reset Form, Show success message
@@ -116,6 +130,68 @@ export default {
               :placeholder="$t('CANNED_MGMT.ADD.FORM.CONTENT.PLACEHOLDER')"
               @blur="v$.content.$touch"
             />
+          </div>
+        </div>
+
+        <div class="w-full my-3">
+          <label class="text-sm font-medium text-n-slate-12 block mb-1">
+            {{ $t('CANNED_MGMT.ADD.FORM.VISIBILITY.LABEL') }}
+          </label>
+          <div class="flex items-center gap-6 my-2 text-sm">
+            <label
+              class="flex items-center gap-2 cursor-pointer text-n-slate-12"
+            >
+              <input
+                v-model="visibilityType"
+                type="radio"
+                value="public"
+                class="text-woot-500 focus:ring-woot-500"
+              />
+              {{ $t('CANNED_MGMT.ADD.FORM.VISIBILITY.PUBLIC') }}
+            </label>
+            <label
+              class="flex items-center gap-2 cursor-pointer text-n-slate-12"
+            >
+              <input
+                v-model="visibilityType"
+                type="radio"
+                value="restricted"
+                class="text-woot-500 focus:ring-woot-500"
+              />
+              {{ $t('CANNED_MGMT.ADD.FORM.VISIBILITY.RESTRICTED') }}
+            </label>
+          </div>
+
+          <div
+            v-if="visibilityType === 'restricted'"
+            class="mt-2 p-3 bg-n-alpha-1 rounded-lg border border-n-strong"
+          >
+            <label
+              class="text-xs font-semibold text-n-slate-11 uppercase tracking-wider block mb-2"
+            >
+              {{ $t('CANNED_MGMT.ADD.FORM.VISIBILITY.TEAMS_LABEL') }}
+            </label>
+            <div
+              v-if="teams.length === 0"
+              class="text-sm text-n-slate-11 italic"
+            >
+              {{ $t('CANNED_MGMT.ADD.FORM.VISIBILITY.NO_TEAMS') }}
+            </div>
+            <div v-else class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+              <label
+                v-for="team in teams"
+                :key="team.id"
+                class="flex items-center gap-2 text-sm text-n-slate-12 cursor-pointer p-1.5 rounded hover:bg-n-alpha-2"
+              >
+                <input
+                  v-model="selectedTeamIds"
+                  type="checkbox"
+                  :value="team.id"
+                  class="rounded text-woot-500 focus:ring-woot-500"
+                />
+                <span class="truncate">{{ team.name }}</span>
+              </label>
+            </div>
           </div>
         </div>
         <div class="flex flex-row justify-end w-full gap-2 px-0 py-2">

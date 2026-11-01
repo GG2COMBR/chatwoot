@@ -16,6 +16,8 @@
       "TABLE_HEADER": {
         "SHORT_CODE": "Short code",
         "CONTENT": "Content",
+        "VISIBILITY": "Availability",
+        "PUBLIC_BADGE": "Public",
         "ACTIONS": "Actions"
       }
     },
@@ -33,6 +35,14 @@
           "LABEL": "Message",
           "PLACEHOLDER": "Please write the message you want to save as a template to use later.",
           "ERROR": "Message is required."
+        },
+        "VISIBILITY": {
+          "LABEL": "Availability",
+          "PUBLIC": "Public (All agents in the account)",
+          "RESTRICTED": "Restricted to specific teams",
+          "TEAMS_LABEL": "Select Teams",
+          "TEAMS_PLACEHOLDER": "Select teams that can use this response",
+          "NO_TEAMS": "No teams available."
         },
         "SUBMIT": "Submit"
       },
@@ -54,6 +64,14 @@
           "LABEL": "Message",
           "PLACEHOLDER": "Please write the message you want to save as a template to use later.",
           "ERROR": "Message is required."
+        },
+        "VISIBILITY": {
+          "LABEL": "Availability",
+          "PUBLIC": "Public (All agents in the account)",
+          "RESTRICTED": "Restricted to specific teams",
+          "TEAMS_LABEL": "Select Teams",
+          "TEAMS_PLACEHOLDER": "Select teams that can use this response",
+          "NO_TEAMS": "No teams available."
         },
         "SUBMIT": "Submit"
       },

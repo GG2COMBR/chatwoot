@@ -6,7 +6,11 @@ import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useStoreGetters, useStore } from 'dashboard/composables/store';
+import {
+  useStoreGetters,
+  useStore,
+  useMapGetter,
+} from 'dashboard/composables/store';
 import { picoSearch } from '@chatwoot/pico-search';
 import { useMessageFormatter } from 'shared/composables/useMessageFormatter';
 
@@ -37,6 +41,10 @@ const cannedResponseAPI = ref({ message: '' });
 
 const sortOrder = ref('asc');
 const searchQuery = ref('');
+
+const teamsList = useMapGetter('teams/getTeams');
+const teamNameById = id =>
+  teamsList.value.find(team => team.id === id)?.name || id;
 
 const records = computed(() =>
   getters.getSortedCannedResponses.value(sortOrder.value)
@@ -72,6 +80,7 @@ const toggleSort = () => {
 
 const fetchCannedResponses = async () => {
   try {
+    store.dispatch('teams/get');
     await store.dispatch('getCannedResponse');
   } catch (error) {
     // Ignore Error
@@ -212,9 +221,27 @@ const tableHeaders = computed(() => {
             <template #default>
               <BaseTableCell class="max-w-0">
                 <div class="flex flex-col gap-2 min-w-0">
-                  <span class="text-heading-3 text-n-slate-12 truncate block">
-                    {{ cannedItem.short_code }}
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-heading-3 text-n-slate-12 truncate block">
+                      {{ cannedItem.short_code }}
+                    </span>
+                    <span
+                      v-if="
+                        !cannedItem.team_ids || cannedItem.team_ids.length === 0
+                      "
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-n-alpha-2 text-n-slate-11"
+                    >
+                      {{ $t('CANNED_MGMT.LIST.TABLE_HEADER.PUBLIC_BADGE') }}
+                    </span>
+                    <span
+                      v-for="teamId in cannedItem.team_ids"
+                      :key="teamId"
+                      class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-woot-50 text-woot-700 dark:bg-woot-900/30 dark:text-woot-300"
+                    >
+                      <Icon icon="i-lucide-users-round" class="size-3" />
+                      {{ teamNameById(teamId) }}
+                    </span>
+                  </div>
                   <p class="text-body-main text-n-slate-11 line-clamp-5">
                     {{ getPlainText(cannedItem.content) }}
                   </p>
@@ -256,6 +283,7 @@ const tableHeaders = computed(() => {
         :id="activeResponse.id"
         :edshort-code="activeResponse.short_code"
         :edcontent="activeResponse.content"
+        :edteam-ids="activeResponse.team_ids || []"
         :on-close="hideEditPopup"
       />
     </woot-modal>
