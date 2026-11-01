@@ -5,6 +5,39 @@ class Custom::Kanban::StageService
     new(conversation, session, stage_id, stage_name).transition!
   end
 
+  def self.move_card!(card, new_stage_id, position = nil)
+    stage = Custom::KanbanStage.find_by(id: new_stage_id)
+    return card unless stage
+
+    card.custom_kanban_stage_id = stage.id
+    card.position = position.to_i if position.present?
+    card.save!
+
+    if card.conversation
+      transition!(card.conversation, nil, stage.id.to_s, stage.name)
+    else
+      broadcast_card_movement!(card, stage)
+    end
+    card
+  end
+
+  def self.broadcast_card_movement!(card, stage)
+    channel = "account_#{card.account_id}_kanban"
+    ActionCable.server.broadcast(channel, {
+                                   event: 'kanban.card_moved',
+                                   data: {
+                                     account_id: card.account_id,
+                                     card_id: card.id,
+                                     stage_id: stage.id,
+                                     stage_name: stage.name,
+                                     position: card.position,
+                                     updated_at: Time.current.iso8601
+                                   }
+                                 })
+  rescue StandardError => e
+    Rails.logger.warn("[Custom::Kanban::StageService] Card broadcast failed: #{e.message}")
+  end
+
   def initialize(conversation, session, stage_id, stage_name = nil)
     @conversation = conversation
     @session = session
@@ -19,14 +52,16 @@ class Custom::Kanban::StageService
     dwell = calculate_dwell_time(now)
 
     update_conversation! if @conversation
+    card = sync_card! if @conversation && @kanban_stage
     update_session!(now, dwell) if @session
-    broadcast_transition!(now, dwell) if @conversation
+    broadcast_transition!(now, dwell, card) if @conversation
 
     {
       status: 'success',
       stage_id: @stage_id,
       stage_name: @stage_name,
       kanban_stage_id: @kanban_stage&.id,
+      card_id: card&.id,
       updated_at: now,
       dwell_time: dwell
     }
@@ -101,7 +136,28 @@ class Custom::Kanban::StageService
     )
   end
 
-  def broadcast_transition!(timestamp, dwell)
+  def sync_card!
+    board = @kanban_stage.custom_kanban_board
+    card = Custom::KanbanCard.where(conversation_id: @conversation.id, custom_kanban_board_id: board.id).first
+    if card
+      card.update!(custom_kanban_stage_id: @kanban_stage.id)
+    elsif @conversation.contact_id.present?
+      card = Custom::KanbanCard.create!(
+        account_id: @conversation.account_id,
+        custom_kanban_board_id: board.id,
+        custom_kanban_stage_id: @kanban_stage.id,
+        contact_id: @conversation.contact_id,
+        conversation_id: @conversation.id,
+        title: @conversation.contact&.name.presence || "Conversa ##{@conversation.display_id}"
+      )
+    end
+    card
+  rescue StandardError => e
+    Rails.logger.warn("[Custom::Kanban::StageService] sync_card! failed: #{e.message}")
+    nil
+  end
+
+  def broadcast_transition!(timestamp, dwell, card = nil)
     return unless @conversation&.account_id
 
     channel = "account_#{@conversation.account_id}_kanban"
@@ -110,6 +166,7 @@ class Custom::Kanban::StageService
       data: {
         account_id: @conversation.account_id,
         conversation_id: @conversation.id,
+        card_id: card&.id,
         stage_id: @stage_id,
         stage_name: @stage_name,
         kanban_stage_id: @kanban_stage&.id,
