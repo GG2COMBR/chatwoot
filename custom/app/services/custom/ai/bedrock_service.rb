@@ -118,15 +118,44 @@ class Custom::Ai::BedrockService
   end
 
   def configure_bedrock!
-    region = @options[:region] || ENV.fetch('CAPTAIN_BEDROCK_REGION', 'us-east-1')
-    access_key = @options[:access_key] || ENV.fetch('CAPTAIN_BEDROCK_ACCESS_KEY_ID', 'test-key')
-    secret_key = @options[:secret_key] || ENV.fetch('CAPTAIN_BEDROCK_SECRET_ACCESS_KEY', 'test-secret')
-
+    creds = load_bedrock_credentials
     RubyLLM.configure do |c|
-      c.bedrock_region = region
-      c.bedrock_api_key = access_key
-      c.bedrock_secret_key = secret_key
+      c.bedrock_region = creds[:region]
+      c.bedrock_api_key = creds[:access_key]
+      c.bedrock_secret_key = creds[:secret_key]
+      c.bedrock_session_token = creds[:session_token] if creds[:session_token].present?
     end
+  end
+
+  def load_bedrock_credentials
+    file_creds = parse_local_bedrock_env
+
+    {
+      region: resolve_bedrock_param(:region, 'CAPTAIN_BEDROCK_REGION', file_creds, default: 'us-east-1'),
+      access_key: resolve_bedrock_param(:access_key, 'CAPTAIN_BEDROCK_ACCESS_KEY_ID', file_creds, default: 'test-key'),
+      secret_key: resolve_bedrock_param(:secret_key, 'CAPTAIN_BEDROCK_SECRET_ACCESS_KEY', file_creds, default: 'test-secret'),
+      session_token: resolve_bedrock_param(:session_token, 'CAPTAIN_BEDROCK_SESSION_TOKEN', file_creds)
+    }
+  rescue StandardError => e
+    Rails.logger.warn("[BedrockService] Failed to load credentials dynamically: #{e.message}")
+    { region: 'us-east-1', access_key: 'test-key', secret_key: 'test-secret', session_token: nil }
+  end
+
+  def resolve_bedrock_param(option_key, env_key, file_creds, default: nil)
+    @options[option_key].presence ||
+      ENV[env_key].presence ||
+      InstallationConfig.find_by(name: env_key)&.value.presence ||
+      file_creds[env_key].presence ||
+      default
+  end
+
+  def parse_local_bedrock_env
+    env_file = Rails.root.join('custom/config/bedrock.local.env')
+    return {} unless File.exist?(env_file)
+
+    Dotenv.parse(env_file)
+  rescue StandardError
+    {}
   end
 
   def configure_openai!

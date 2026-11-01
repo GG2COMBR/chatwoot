@@ -11,14 +11,26 @@ class Custom::SeedService
 
   def perform!
     account = find_or_create_account
+    setup_enterprise_configuration(account)
+    setup_bedrock_configuration
     admin, vendas_agent, sac_agent = setup_users(account)
     setup_custom_attributes(account)
+    board, stages = setup_kanban_board_and_stages(account)
     teams = setup_teams(account, vendas_agent, sac_agent)
     inbox = setup_inbox(account, [admin, vendas_agent, sac_agent])
     flow = setup_sample_flow(account)
-    purchase_flow = setup_purchase_journey_flow(account)
+    purchase_flow = setup_purchase_journey_flow(account, stages)
 
-    { account: account, admin: admin, teams: teams, inbox: inbox, flow: flow, purchase_flow: purchase_flow }
+    {
+      account: account,
+      admin: admin,
+      teams: teams,
+      inbox: inbox,
+      flow: flow,
+      purchase_flow: purchase_flow,
+      kanban_board: board,
+      kanban_stages: stages
+    }
   end
 
   private
@@ -28,6 +40,94 @@ class Custom::SeedService
     account.locale = 'pt_BR'
     account.save!
     account
+  end
+
+  def setup_enterprise_configuration(account)
+    InstallationConfig.where(name: 'INSTALLATION_PRICING_PLAN').first_or_initialize.update!(value: 'enterprise', locked: true)
+    InstallationConfig.where(name: 'INSTALLATION_PRICING_PLAN_QUANTITY').first_or_initialize.update!(value: 1000, locked: true)
+
+    account.enable_features!(
+      'automations',
+      'custom_roles',
+      'sla',
+      'reports',
+      'audit_logs',
+      'conversation_monitors',
+      'campaigns',
+      'help_center',
+      'channel_email'
+    )
+  end
+
+  def setup_bedrock_configuration
+    creds = load_bedrock_seed_credentials
+    return if creds[:access_key].blank? || creds[:secret_key].blank?
+
+    InstallationConfig.find_or_initialize_by(name: 'CAPTAIN_LLM_PROVIDER').update!(value: 'bedrock', locked: true)
+    InstallationConfig.find_or_initialize_by(name: 'CAPTAIN_BEDROCK_REGION').update!(value: creds[:region], locked: true)
+    InstallationConfig.find_or_initialize_by(name: 'CAPTAIN_BEDROCK_ACCESS_KEY_ID').update!(value: creds[:access_key], locked: true)
+    InstallationConfig.find_or_initialize_by(name: 'CAPTAIN_BEDROCK_SECRET_ACCESS_KEY').update!(value: creds[:secret_key], locked: true)
+    if creds[:session_token].present?
+      InstallationConfig.find_or_initialize_by(name: 'CAPTAIN_BEDROCK_SESSION_TOKEN').update!(value: creds[:session_token], locked: true)
+    end
+
+    RubyLLM.configure do |c|
+      c.bedrock_region = creds[:region]
+      c.bedrock_api_key = creds[:access_key]
+      c.bedrock_secret_key = creds[:secret_key]
+      c.bedrock_session_token = creds[:session_token] if creds[:session_token].present?
+    end
+  rescue StandardError => e
+    Rails.logger.warn("[Custom::SeedService] setup_bedrock_configuration error: #{e.message}")
+  end
+
+  def load_bedrock_seed_credentials
+    env_file = Rails.root.join('custom/config/bedrock.local.env')
+    file_creds = File.exist?(env_file) ? Dotenv.parse(env_file) : {}
+
+    region = ENV['CAPTAIN_BEDROCK_REGION'].presence ||
+             file_creds['CAPTAIN_BEDROCK_REGION'].presence ||
+             'us-east-1'
+
+    access_key = ENV['CAPTAIN_BEDROCK_ACCESS_KEY_ID'].presence ||
+                 file_creds['CAPTAIN_BEDROCK_ACCESS_KEY_ID'].presence
+
+    secret_key = ENV['CAPTAIN_BEDROCK_SECRET_ACCESS_KEY'].presence ||
+                 file_creds['CAPTAIN_BEDROCK_SECRET_ACCESS_KEY'].presence
+
+    session_token = ENV['CAPTAIN_BEDROCK_SESSION_TOKEN'].presence ||
+                    file_creds['CAPTAIN_BEDROCK_SESSION_TOKEN'].presence
+
+    { region: region, access_key: access_key, secret_key: secret_key, session_token: session_token }
+  end
+
+  def setup_kanban_board_and_stages(account)
+    board = Custom::KanbanBoard.find_or_initialize_by(account: account, name: 'Funil de Vendas & Atendimento')
+    board.description = 'Funil comercial oficial com automações integradas'
+    board.position = 0
+    board.save!
+
+    stages_data = [
+      { name: 'Lead Qualificado', slug: 'lead_qualificado', position: 0, color: '#3B82F6' },
+      { name: 'Orçamento Enviado', slug: 'orcamento_enviado', position: 1, color: '#F59E0B' },
+      { name: 'Aguardando PIX', slug: 'aguardando_pix', position: 2, color: '#8B5CF6' },
+      { name: 'Venda Concluída', slug: 'concluido', position: 3, color: '#10B981' }
+    ]
+
+    stages = stages_data.map do |data|
+      stage = Custom::KanbanStage.find_or_initialize_by(
+        account: account,
+        custom_kanban_board: board,
+        slug: data[:slug]
+      )
+      stage.name = data[:name]
+      stage.position = data[:position]
+      stage.color = data[:color]
+      stage.save!
+      stage
+    end
+
+    [board, stages]
   end
 
   def setup_users(account)
@@ -199,19 +299,20 @@ class Custom::SeedService
     end
   end
 
-  def setup_purchase_journey_flow(account)
+  def setup_purchase_journey_flow(account, stages = [])
     flow = Custom::Flow.find_or_initialize_by(account: account, name: '🛍️ Jornada de Compra Completa — E-commerce & URA')
     flow.description = 'Fluxo de vendas integrado ao Magento: IA Slot Filling, Consulta API, Try-Catch, Pix Copia-e-Cola e Kanban'
     flow.status = :published
     flow.trigger_type = 'automation'
     flow.trigger_config = { 'status_custom_attribute_key' => 'etapa_fluxo' }
-    flow.nodes = purchase_journey_nodes
+    pix_stage = stages.find { |s| s.slug == 'aguardando_pix' }
+    flow.nodes = purchase_journey_nodes(pix_stage)
     flow.edges = purchase_journey_edges
     flow.save!
     flow
   end
 
-  def purchase_journey_nodes
+  def purchase_journey_nodes(pix_stage = nil)
     [
       { id: 'start', type: 'start', position: { x: 400, y: 50 }, data: { label: 'Início da Conversa' } },
       {
@@ -348,8 +449,8 @@ class Custom::SeedService
         position: { x: 400, y: 1350 },
         data: {
           label: 'Mover no Funil Comercial',
-          stage_id: 'aguardando_pagamento',
-          stage_name: 'Aguardando Pagamento'
+          stage_id: pix_stage&.id&.to_s || 'aguardando_pix',
+          stage_name: pix_stage&.name || 'Aguardando PIX'
         }
       },
       {

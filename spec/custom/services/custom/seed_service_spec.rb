@@ -4,6 +4,12 @@ require 'rails_helper'
 
 RSpec.describe Custom::SeedService do
   describe '.perform!' do
+    before do
+      # rubocop:disable RSpec/AnyInstance
+      allow_any_instance_of(Channel::Whatsapp).to receive(:sync_templates).and_return(true)
+      # rubocop:enable RSpec/AnyInstance
+    end
+
     it 'creates GG2 account and configured users' do
       result = described_class.perform!
 
@@ -12,6 +18,28 @@ RSpec.describe Custom::SeedService do
       expect(result[:account].locale).to eq('pt_BR')
       expect(result[:admin].email).to eq('admin@gg2.com.br')
       expect(result[:admin].account_users.find_by(account: result[:account])).to be_administrator
+    end
+
+    it 'activates Enterprise plan and advanced features on account' do
+      result = described_class.perform!
+      account = result[:account]
+
+      plan = InstallationConfig.find_by(name: 'INSTALLATION_PRICING_PLAN')&.value
+      expect(plan).to eq('enterprise')
+      expect(account.feature_enabled?('sla')).to be true
+      expect(account.feature_enabled?('automations')).to be true
+      expect(account.feature_enabled?('custom_roles')).to be true
+      expect(account.feature_enabled?('audit_logs')).to be true
+    end
+
+    it 'creates canonical kanban board and stages' do
+      result = described_class.perform!
+
+      expect(result[:kanban_board]).to be_persisted
+      expect(result[:kanban_board].name).to eq('Funil de Vendas & Atendimento')
+
+      stage_slugs = result[:kanban_stages].map(&:slug)
+      expect(stage_slugs).to include('lead_qualificado', 'orcamento_enviado', 'aguardando_pix', 'concluido')
     end
 
     it 'creates teams and WhatsApp inbox with working hours' do
@@ -24,13 +52,16 @@ RSpec.describe Custom::SeedService do
       expect(result[:inbox].working_hours.count).to eq(7)
     end
 
-    it 'publishes sample flow' do
+    it 'publishes sample flow and purchase journey flow' do
       result = described_class.perform!
 
       expect(result[:flow]).to be_persisted
       expect(result[:flow].name).to eq('Fluxo Geral de Atendimento GG2')
       expect(result[:flow].status).to eq('published')
       expect(result[:flow].nodes.size).to be >= 4
+
+      expect(result[:purchase_flow]).to be_persisted
+      expect(result[:purchase_flow].nodes.size).to be >= 10
     end
 
     it 'is completely idempotent on multiple runs' do
@@ -40,6 +71,7 @@ RSpec.describe Custom::SeedService do
         second_result = described_class.perform!
         expect(second_result[:account].id).to eq(first_result[:account].id)
         expect(second_result[:flow].id).to eq(first_result[:flow].id)
+        expect(second_result[:kanban_board].id).to eq(first_result[:kanban_board].id)
       end.not_to change(Account, :count)
     end
   end
