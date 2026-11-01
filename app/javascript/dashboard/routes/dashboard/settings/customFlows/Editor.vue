@@ -80,13 +80,27 @@ onMounted(() => {
 });
 
 const onConnect = params => {
-  addEdges([
-    {
-      ...params,
-      id: `e_${params.source}_${params.target}_${Date.now()}`,
-      animated: true,
-    },
-  ]);
+  const sourceNode = findNode(params.source);
+  const items = sourceNode?.data?.buttons || sourceNode?.data?.items || [];
+  const selectedItem = items.find(i => i.id === params.sourceHandle);
+
+  const edgeLabel = selectedItem ? selectedItem.title : undefined;
+  const condition = selectedItem
+    ? { button_id: selectedItem.id, value: selectedItem.title }
+    : undefined;
+
+  const newEdge = {
+    ...params,
+    id: `e_${params.source}_${params.sourceHandle || 'def'}_${params.target}_${Date.now()}`,
+    label: edgeLabel,
+    labelStyle: edgeLabel ? { fill: '#64748b', fontSize: '11px', fontWeight: 600 } : undefined,
+    data: { condition },
+    condition,
+    animated: true,
+  };
+
+  addEdges([newEdge]);
+  edges.value = [...edges.value, newEdge];
 };
 
 const onNodeClick = ({ node }) => {

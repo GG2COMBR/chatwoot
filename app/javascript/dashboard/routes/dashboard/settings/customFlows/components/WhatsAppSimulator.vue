@@ -195,15 +195,33 @@ const openListModal = msg => {
   };
 };
 
+const findMatchingNextNode = (buttonId, text) => {
+  const outgoingEdges = props.edges.filter(e => e.source === currentNodeId.value);
+  if (outgoingEdges.length === 0) return null;
+
+  const matchedEdge = outgoingEdges.find(e => {
+    if (buttonId && (e.sourceHandle === buttonId || e.condition?.button_id === buttonId)) return true;
+    if (text) {
+      if (e.condition?.value && e.condition.value.toLowerCase() === text.toLowerCase()) return true;
+      if (e.condition?.keyword && text.toLowerCase().includes(e.condition.keyword.toLowerCase())) return true;
+    }
+    return false;
+  }) || outgoingEdges.find(e => !e.condition || e.condition.default);
+
+  const targetId = matchedEdge ? matchedEdge.target : outgoingEdges[0]?.target;
+  return targetId ? props.nodes.find(n => n.id === targetId) : null;
+};
+
 const selectListItem = item => {
   activeListModal.value = null;
   addUserMessage(item.title);
 
-  const nextNodes = getNextNodes(currentNodeId.value);
-  if (nextNodes.length > 0) {
-    const nextNode = nextNodes[0];
+  const nextNode = findMatchingNextNode(item.id, item.title);
+  if (nextNode) {
     currentNodeId.value = nextNode.id;
     processNode(nextNode);
+  } else {
+    isSimulating.value = false;
   }
 };
 
@@ -229,11 +247,12 @@ const handleButtonClick = (button, parentMessage) => {
   addUserMessage(button.title);
   parentMessage.selectedButtonId = button.id;
 
-  const nextNodes = getNextNodes(currentNodeId.value);
-  if (nextNodes.length > 0) {
-    const nextNode = nextNodes[0];
+  const nextNode = findMatchingNextNode(button.id, button.title);
+  if (nextNode) {
     currentNodeId.value = nextNode.id;
     processNode(nextNode);
+  } else {
+    isSimulating.value = false;
   }
 };
 
@@ -244,9 +263,8 @@ const handleSendInput = () => {
   addUserMessage(text);
   userInput.value = '';
 
-  const nextNodes = getNextNodes(currentNodeId.value);
-  if (nextNodes.length > 0) {
-    const nextNode = nextNodes[0];
+  const nextNode = findMatchingNextNode(null, text);
+  if (nextNode) {
     currentNodeId.value = nextNode.id;
     processNode(nextNode);
   } else {
