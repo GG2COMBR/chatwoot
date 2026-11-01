@@ -2,13 +2,31 @@
 
 module Custom::Flows::NodeHandlers
   def dispatch_team_assignment(session, node)
+    team_id = node.dig(:data, :team_id)
     team_name = node.dig(:data, :team_name)
-    team = session.account.teams.where('lower(name) = ?', team_name.to_s.downcase).first if team_name.present?
+    team = if team_id.present?
+             session.account.teams.find_by(id: team_id)
+           elsif team_name.present?
+             session.account.teams.where('lower(name) = ?', team_name.to_s.downcase).first
+           end
+
+    agent_id = node.dig(:data, :agent_id) || node.dig(:data, :assigned_agent_id)
+    agent = session.account.users.find_by(id: agent_id) if agent_id.present?
+
+    transfer_msg = node.dig(:data, :transfer_message) || node.dig(:data, :text)
+    create_outgoing_message(transfer_msg) if transfer_msg.present?
 
     config = node[:data] || {}
     result = Custom::Flows::ScheduleEvaluatorService.route_and_handoff!(session.conversation, team, config)
+
+    session.conversation.update!(assignee: agent) if agent && session.conversation
+
     session.update!(status: :handoff)
-    session.update_context(handoff_result: result)
+    session.update_context(
+      handoff_result: result,
+      assigned_team_id: team&.id,
+      assigned_agent_id: agent&.id
+    )
   end
 
   def evaluate_business_hours_node(session, node)
