@@ -74,5 +74,17 @@ RSpec.describe Custom::SeedService do
         expect(second_result[:kanban_board].id).to eq(first_result[:kanban_board].id)
       end.not_to change(Account, :count)
     end
+
+    it 'supports clean minimal setup when with_demo is false' do
+      clean_account = Account.create!(name: 'Conta Limpa Dev')
+      result = described_class.new.perform!(with_demo: false)
+
+      expect(result[:with_demo]).to be false
+      expect(result[:teams]).to be_empty
+      expect(result[:inbox]).to be_nil
+      expect(result[:flow]).to be_nil
+      expect(result[:purchase_flow]).to be_nil
+      expect(result[:admin].email).to eq('admin@gg2.com.br')
+    end
   end
 end

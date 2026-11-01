@@ -5,21 +5,30 @@ class Custom::SeedService
   ACCOUNT_NAME = 'GG2 Tecnologia'
   WHATSAPP_PHONE = '+5511999999999'
 
-  def self.perform!
-    new.perform!
+  def self.perform!(with_demo: true)
+    new.perform!(with_demo: with_demo)
   end
 
-  def perform!
+  def perform!(with_demo: true)
     account = find_or_create_account
     setup_enterprise_configuration(account)
     setup_bedrock_configuration
-    admin, vendas_agent, sac_agent = setup_users(account)
+    admin = setup_admin_user(account)
     setup_custom_attributes(account)
     board, stages = setup_kanban_board_and_stages(account)
-    teams = setup_teams(account, vendas_agent, sac_agent)
-    inbox = setup_inbox(account, [admin, vendas_agent, sac_agent])
-    flow = setup_sample_flow(account)
-    purchase_flow = setup_purchase_journey_flow(account, stages)
+
+    if with_demo
+      vendas_agent, sac_agent = setup_demo_agents(account)
+      teams = setup_teams(account, vendas_agent, sac_agent)
+      inbox = setup_inbox(account, [admin, vendas_agent, sac_agent])
+      flow = setup_sample_flow(account)
+      purchase_flow = setup_purchase_journey_flow(account, stages)
+    else
+      teams = []
+      inbox = nil
+      flow = nil
+      purchase_flow = nil
+    end
 
     {
       account: account,
@@ -29,7 +38,8 @@ class Custom::SeedService
       flow: flow,
       purchase_flow: purchase_flow,
       kanban_board: board,
-      kanban_stages: stages
+      kanban_stages: stages,
+      with_demo: with_demo
     }
   end
 
@@ -131,13 +141,16 @@ class Custom::SeedService
     [board, stages]
   end
 
-  def setup_users(account)
-    admin = find_or_create_user(
+  def setup_admin_user(account)
+    find_or_create_user(
       email: 'admin@gg2.com.br',
       name: 'Admin GG2',
       role: :administrator,
       account: account
     )
+  end
+
+  def setup_demo_agents(account)
     vendas = find_or_create_user(
       email: 'vendas@gg2.com.br',
       name: 'Atendente Vendas GG2',
@@ -151,7 +164,7 @@ class Custom::SeedService
       account: account
     )
 
-    [admin, vendas, sac]
+    [vendas, sac]
   end
 
   def find_or_create_user(email:, name:, role:, account:)
@@ -191,8 +204,10 @@ class Custom::SeedService
   def setup_inbox(account, users)
     channel = Channel::Whatsapp.find_by(phone_number: WHATSAPP_PHONE)
     unless channel
+      Channel::Whatsapp.skip_callback(:create, :after, :sync_templates, raise: false)
       channel = Channel::Whatsapp.new(account: account, phone_number: WHATSAPP_PHONE, provider: 'default')
       channel.save!(validate: false)
+      Channel::Whatsapp.set_callback(:create, :after, :sync_templates)
     end
 
     inbox = Inbox.find_or_initialize_by(account: account, channel: channel)
