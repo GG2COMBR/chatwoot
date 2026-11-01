@@ -13,7 +13,12 @@
       "TOTAL_OPPORTUNITIES": "Total Oportunidades:",
       "PIPELINE_VALUE": "Valor em Pipeline:",
       "CLOSED_WON": "Fechados",
-      "SYNCED_WITH": "Sincronizado com o atributo de conversa:"
+      "SYNCED_WITH": "Sincronizado com o atributo de conversa:",
+      "WINDOW_LABEL": "Concluídos:",
+      "WINDOW_7": "Últimos 7 dias",
+      "WINDOW_14": "Últimos 14 dias",
+      "WINDOW_30": "Últimos 30 dias",
+      "WINDOW_ALL": "Histórico Completo"
     },
     "EMPTY_STATE": {
       "TITLE": "Nenhum Quadro Kanban Encontrado",
@@ -30,7 +35,10 @@
     "COLUMN": {
       "TOTAL": "Total:",
       "ADD_OPPORTUNITY": "Adicionar Oportunidade",
-      "NEW_OPP_TOOLTIP": "Nova Oportunidade nesta etapa"
+      "NEW_OPP_TOOLTIP": "Nova Oportunidade nesta etapa",
+      "COLLAPSE": "Recolher etapa",
+      "EXPAND": "Expandir etapa",
+      "LOAD_MORE": "Carregar mais cards"
     },
     "CARD": {
       "PRIORITY_URGENT": "Urgente",

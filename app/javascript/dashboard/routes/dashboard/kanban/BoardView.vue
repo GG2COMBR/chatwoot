@@ -29,6 +29,7 @@ const cards = ref([]);
 const isLoading = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref('');
+const completedDays = ref('14');
 
 const cardModalRef = ref(null);
 const stageDialogRef = ref(null);
@@ -49,6 +50,7 @@ const loadBoardData = async () => {
       customKanban.getCards(activeBoardId.value, {
         query: searchQuery.value || undefined,
         status: statusFilter.value || undefined,
+        completed_days: completedDays.value || undefined,
       }),
     ]);
 
@@ -69,7 +71,7 @@ watch(
   { immediate: true }
 );
 
-watch([searchQuery, statusFilter], () => {
+watch([searchQuery, statusFilter, completedDays], () => {
   loadBoardData();
 });
 
@@ -225,10 +227,9 @@ const handleSaveStage = async () => {
           <span class="text-slate-400">{{
             $t('KANBAN.HEADER.PIPELINE_VALUE')
           }}</span>
-          <span
-            class="ml-1.5 font-bold text-emerald-600 dark:text-emerald-400"
-            >{{ totalPipelineValue }}</span
-          >
+          <span class="ml-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+            {{ totalPipelineValue }}
+          </span>
         </div>
         <div class="h-4 w-px bg-slate-200 dark:bg-slate-700" />
         <div>
@@ -266,6 +267,25 @@ const handleSaveStage = async () => {
           </option>
           <option value="lost">
             {{ $t('KANBAN.HEADER.STATUS_LOST') }}
+          </option>
+        </select>
+
+        <select
+          v-model="completedDays"
+          class="h-8 px-2 text-xs bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-woot-500"
+          :title="$t('KANBAN.HEADER.WINDOW_LABEL')"
+        >
+          <option value="7">
+            {{ $t('KANBAN.HEADER.WINDOW_7') }}
+          </option>
+          <option value="14">
+            {{ $t('KANBAN.HEADER.WINDOW_14') }}
+          </option>
+          <option value="30">
+            {{ $t('KANBAN.HEADER.WINDOW_30') }}
+          </option>
+          <option value="all">
+            {{ $t('KANBAN.HEADER.WINDOW_ALL') }}
           </option>
         </select>
 
