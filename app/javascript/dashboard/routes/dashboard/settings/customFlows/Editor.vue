@@ -46,9 +46,14 @@ const nodeTypes = {
   ai_agent: markRaw(CustomNode),
   human_transfer: markRaw(CustomNode),
   kanban_stage_change: markRaw(CustomNode),
+  manage_labels: markRaw(CustomNode),
+  condition_router: markRaw(CustomNode),
+  try_catch: markRaw(CustomNode),
   async_api: markRaw(CustomNode),
   finish: markRaw(CustomNode),
 };
+
+const statusAttrKey = ref('');
 
 const { addNodes, addEdges, removeNodes, setNodes, setEdges, findNode } = useVueFlow('flow_canvas');
 
@@ -57,6 +62,7 @@ const fetchFlow = async () => {
   try {
     const response = await CustomFlowsAPI.show(route.params.flowId);
     flow.value = response.data?.payload;
+    statusAttrKey.value = flow.value?.trigger_config?.status_custom_attribute_key || '';
 
     const loadedNodes = (flow.value?.nodes || []).map(n => ({
       ...n,
@@ -84,10 +90,30 @@ const onConnect = params => {
   const items = sourceNode?.data?.buttons || sourceNode?.data?.items || [];
   const selectedItem = items.find(i => i.id === params.sourceHandle);
 
-  const edgeLabel = selectedItem ? selectedItem.title : undefined;
-  const condition = selectedItem
+  let edgeLabel = selectedItem ? selectedItem.title : undefined;
+  let condition = selectedItem
     ? { button_id: selectedItem.id, value: selectedItem.title }
     : undefined;
+
+  if (params.sourceHandle === 'try') {
+    edgeLabel = 'Executar (Try)';
+    condition = { status: 'try' };
+  } else if (params.sourceHandle === 'catch') {
+    edgeLabel = 'Falha / Limite (Catch)';
+    condition = { status: 'catch' };
+  } else if (params.sourceHandle === 'true') {
+    edgeLabel = 'Sim (Verdadeiro)';
+    condition = { status: 'true' };
+  } else if (params.sourceHandle === 'false') {
+    edgeLabel = 'Não (Falso)';
+    condition = { status: 'false' };
+  } else if (params.sourceHandle === 'success') {
+    edgeLabel = 'Sucesso';
+    condition = { status: 'success' };
+  } else if (params.sourceHandle === 'error') {
+    edgeLabel = 'Erro / Falha';
+    condition = { status: 'error' };
+  }
 
   const newEdge = {
     ...params,
@@ -177,9 +203,19 @@ const saveFlow = async () => {
       custom_flow: {
         nodes: currentNodes,
         edges: edges.value,
+        trigger_config: {
+          ...(flow.value?.trigger_config || {}),
+          status_custom_attribute_key: statusAttrKey.value.trim(),
+        },
       },
     };
     await CustomFlowsAPI.update(flow.value.id, payload);
+    if (flow.value) {
+      flow.value.trigger_config = {
+        ...(flow.value.trigger_config || {}),
+        status_custom_attribute_key: statusAttrKey.value.trim(),
+      };
+    }
     useAlert('Fluxo salvo com sucesso!');
   } catch (error) {
     useAlert('Falha ao salvar o fluxo');
@@ -236,6 +272,18 @@ const backToList = () => {
           >
             {{ flow.status === 'published' ? 'Publicado' : 'Rascunho' }}
           </span>
+        </div>
+
+        <!-- Campo Personalizado de Conversa para Status -->
+        <div class="hidden lg:flex items-center gap-2 pl-4 border-l border-n-strong">
+          <span class="text-xs text-n-slate-10 font-medium">Status da Conversa:</span>
+          <input
+            v-model="statusAttrKey"
+            type="text"
+            placeholder="Ex: etapa_fluxo"
+            class="px-2.5 py-1 text-xs rounded-lg border border-n-strong bg-n-solid-1 text-n-slate-12 outline-none focus:border-n-brand font-mono w-36"
+            title="Chave do atributo de conversa que guardará o status da etapa atual"
+          />
         </div>
       </div>
 
@@ -329,6 +377,15 @@ const backToList = () => {
           <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
         </template>
         <template #node-kanban_stage_change="nodeProps">
+          <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
+        </template>
+        <template #node-manage_labels="nodeProps">
+          <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
+        </template>
+        <template #node-condition_router="nodeProps">
+          <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
+        </template>
+        <template #node-try_catch="nodeProps">
           <CustomNode v-bind="nodeProps" @delete="handleDeleteNode" />
         </template>
         <template #node-async_api="nodeProps">

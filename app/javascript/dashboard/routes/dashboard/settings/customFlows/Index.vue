@@ -26,6 +26,7 @@ const isSubmitting = ref(false);
 const newFlowName = ref('');
 const newFlowDescription = ref('');
 const newFlowTrigger = ref('default');
+const newFlowStatusAttrKey = ref('etapa_fluxo');
 
 const fetchFlows = async () => {
   isLoading.value = true;
@@ -59,6 +60,7 @@ const openCreateModal = () => {
   newFlowName.value = '';
   newFlowDescription.value = '';
   newFlowTrigger.value = 'default';
+  newFlowStatusAttrKey.value = 'etapa_fluxo';
   showCreateModal.value = true;
 };
 
@@ -76,6 +78,9 @@ const createFlow = async () => {
         name: newFlowName.value.trim(),
         description: newFlowDescription.value.trim(),
         trigger_type: newFlowTrigger.value,
+        trigger_config: {
+          status_custom_attribute_key: newFlowStatusAttrKey.value.trim(),
+        },
         nodes: [
           {
             id: 'start',
@@ -352,6 +357,21 @@ const formatDate = dateString => {
                 <option value="default">WhatsApp Padrão (Primeira Mensagem)</option>
                 <option value="kanban_stage_entered">Gatilho Kanban (Entrada de Estágio)</option>
               </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-n-slate-11 mb-1">
+                Campo de Status da Conversa (Custom Attribute)
+              </label>
+              <input
+                v-model="newFlowStatusAttrKey"
+                type="text"
+                placeholder="Ex: etapa_fluxo ou status_venda"
+                class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand font-mono text-xs"
+              />
+              <p class="text-[11px] text-n-slate-10 mt-1">
+                Armazena o status do passo atual na conversa para métricas de tempo e automações.
+              </p>
             </div>
           </div>
 

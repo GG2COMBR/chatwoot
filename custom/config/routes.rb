@@ -3,6 +3,9 @@
 Rails.application.routes.draw do
   scope 'api/v1/accounts/:account_id', module: 'custom/api/v1', as: 'custom_api_v1_account' do
     resources :custom_flows, controller: 'flows' do
+      collection do
+        get :kanban_options
+      end
       member do
         post :publish
         post :duplicate

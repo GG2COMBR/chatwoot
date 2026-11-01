@@ -114,6 +114,85 @@ class Custom::Mocks::EcommerceMockService
     }
   end
 
+  def magento_customer_lookup(payload)
+    clean_cpf = sanitize_digits(payload[:cpf])
+    found = clean_cpf.present? && clean_cpf != '00000000000'
+
+    {
+      status: 'success',
+      data: {
+        customer_found: found,
+        cpf: clean_cpf,
+        name: found ? (payload[:name].presence || 'Carlos Eduardo Silva') : nil,
+        email: found ? (payload[:email].presence || 'carlos.silva@odontoclinica.com.br') : nil,
+        credit_limit: found ? 'R$ 5.000,00' : 'R$ 0,00',
+        customer_group: found ? 'Profissional Dentista' : 'Novo Lead'
+      }
+    }
+  end
+
+  def magento_search_products(payload)
+    query = payload[:query].to_s.downcase
+
+    products = [
+      { sku: 'RES-Z350-A2', name: 'Resina Filtek Z350 XT A2 3M', price: 89.90, stock: 45, unit: 'seringa 4g' },
+      { sku: 'ADH-SB2-6ML', name: 'Adesivo Single Bond 2 6ml 3M', price: 95.00, stock: 20, unit: 'frasco' },
+      { sku: 'LUV-PROC-M', name: 'Luva de Procedimento Nitrílica M (100un)', price: 34.50, stock: 120, unit: 'cx' },
+      { sku: 'ALG-HYDRO-454', name: 'Alginato Hydrogum 5 Zhermack 454g', price: 58.00, stock: 35, unit: 'pct' }
+    ]
+
+    filtered = query.present? ? products.select { |p| p[:name].downcase.include?(query) || p[:sku].downcase.include?(query) } : products
+
+    {
+      status: 'success',
+      data: {
+        query: query,
+        total: filtered.size,
+        products: filtered
+      }
+    }
+  end
+
+  def magento_create_quote(payload)
+    cep = sanitize_digits(payload[:cep]).presence || '01310100'
+    items_total = (payload[:items_total] || 180.00).to_f
+    shipping_cost = cep.start_with?('01', '02', '03') ? 15.00 : 25.00
+    grand_total = (items_total + shipping_cost).round(2)
+
+    {
+      status: 'success',
+      data: {
+        quote_id: "Q-#{Time.current.strftime('%y%m%d%H%M')}",
+        cep: cep,
+        shipping_method: 'Sedex Expresso',
+        shipping_cost: format('%.2f', shipping_cost),
+        shipping_estimate: '2 dias úteis',
+        items_total: format('%.2f', items_total),
+        grand_total: format('%.2f', grand_total),
+        pix_discount_5pct: format('%.2f', (grand_total * 0.95).round(2))
+      }
+    }
+  end
+
+  def magento_place_order(payload)
+    id = "PED-#{Time.current.strftime('%y%m%d')}-#{rand(1000..9999)}"
+    amount = payload[:amount] || '195.00'
+
+    {
+      status: 'success',
+      data: {
+        order_id: id,
+        status: 'pending_payment',
+        amount: amount,
+        payment_method: payload[:payment_method] || 'pix',
+        pix_code: "00020126580014br.gov.bcb.pix0136gg2-payments-#{id}520400005303986540#{format('%.2f', amount.to_f)}5802BR5913GG2 Odonto6009Sao Paulo62070503***6304ABCD",
+        pix_qrcode_url: "https://api.gg2.com.br/pix/qrcode/#{id}.png",
+        boleto_url: "https://api.gg2.com.br/boletos/#{id}.pdf",
+        expires_at: 30.minutes.from_now.strftime('%H:%M de %d/%m/%Y')
+      }
+    }
+  end
+
   private
 
   def operation_handlers
@@ -123,7 +202,11 @@ class Custom::Mocks::EcommerceMockService
       'recent_orders' => method(:recent_orders),
       'order_status' => method(:order_status),
       'generate_boleto' => method(:generate_boleto),
-      'reseller_balance' => method(:reseller_balance)
+      'reseller_balance' => method(:reseller_balance),
+      'magento_customer_lookup' => method(:magento_customer_lookup),
+      'magento_search_products' => method(:magento_search_products),
+      'magento_create_quote' => method(:magento_create_quote),
+      'magento_place_order' => method(:magento_place_order)
     }
   end
 
