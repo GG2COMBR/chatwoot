@@ -65,6 +65,17 @@ RSpec.describe Custom::SeedService do
       expect(Custom::KanbanCard.where(account: result[:account]).count).to eq(4)
     end
 
+    it 'creates an active automation rule to trigger the flow on new conversations' do
+      result = described_class.perform!
+
+      rule = AutomationRule.find_by(account: result[:account], name: '🤖 Disparar Fluxo Geral de Atendimento GG2')
+      expect(rule).to be_present
+      expect(rule.active).to be true
+      expect(rule.event_name).to eq('conversation_created')
+      expect(rule.actions.first['action_name']).to eq('trigger_flow')
+      expect(rule.actions.first['action_params']).to eq([result[:flow].id])
+    end
+
     it 'is completely idempotent on multiple runs' do
       first_result = described_class.perform!
 
@@ -77,7 +88,7 @@ RSpec.describe Custom::SeedService do
     end
 
     it 'supports clean minimal setup when with_demo is false' do
-      clean_account = Account.create!(name: 'Conta Limpa Dev')
+      Account.create!(name: 'Conta Limpa Dev')
       result = described_class.new.perform!(with_demo: false)
 
       expect(result[:with_demo]).to be false

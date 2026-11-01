@@ -23,6 +23,7 @@ class Custom::SeedService
       inbox = setup_inbox(account, [admin, vendas_agent, sac_agent])
       flow = setup_sample_flow(account)
       purchase_flow = setup_purchase_journey_flow(account, stages)
+      setup_flow_automation_rule(account, inbox, flow)
       setup_demo_kanban_cards(account, board, stages, admin, vendas_agent)
     else
       teams = []
@@ -249,6 +250,42 @@ class Custom::SeedService
     flow.edges = sample_edges
     flow.save!
     flow
+  end
+
+  def setup_flow_automation_rule(account, inbox, flow)
+    return unless inbox && flow
+
+    rule = AutomationRule.find_or_initialize_by(
+      account: account,
+      name: '🤖 Disparar Fluxo Geral de Atendimento GG2'
+    )
+    rule.description = 'Inicia o Flowbuilder automaticamente quando uma nova conversa é criada na caixa de entrada'
+    rule.event_name = 'conversation_created'
+    rule.conditions = flow_automation_conditions(inbox)
+    rule.actions = flow_automation_actions(flow)
+    rule.active = true
+    rule.save!
+    rule
+  end
+
+  def flow_automation_conditions(inbox)
+    [
+      {
+        'attribute_key' => 'inbox_id',
+        'filter_operator' => 'equal_to',
+        'values' => [inbox.id],
+        'query_operator' => nil
+      }
+    ]
+  end
+
+  def flow_automation_actions(flow)
+    [
+      {
+        'action_name' => 'trigger_flow',
+        'action_params' => [flow.id]
+      }
+    ]
   end
 
   def sample_nodes
