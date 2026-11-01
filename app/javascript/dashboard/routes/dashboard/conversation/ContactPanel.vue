@@ -25,6 +25,7 @@ import SidebarActionsHeader from 'dashboard/components-next/SidebarActionsHeader
 import LinearIssuesList from 'dashboard/components/widgets/conversation/linear/IssuesList.vue';
 import LinearSetupCTA from 'dashboard/components/widgets/conversation/linear/LinearSetupCTA.vue';
 import StripeCustomer from 'dashboard/components/widgets/conversation/StripeCustomer.vue';
+import KanbanOpportunityWidget from './kanban/KanbanOpportunityWidget.vue';
 
 const props = defineProps({
   conversationId: {
@@ -177,6 +178,23 @@ onMounted(() => {
               <ConversationAction
                 :conversation-id="conversationId"
                 :inbox-id="inboxId"
+              />
+            </AccordionItem>
+          </div>
+          <div
+            v-else-if="element.name === 'kanban_crm'"
+            class="conversation--actions"
+          >
+            <AccordionItem
+              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.KANBAN_CRM')"
+              :is-open="isContactSidebarItemOpen('is_kanban_crm_open')"
+              @toggle="
+                value => toggleSidebarUIState('is_kanban_crm_open', value)
+              "
+            >
+              <KanbanOpportunityWidget
+                :conversation-id="conversationId"
+                :contact="contact"
               />
             </AccordionItem>
           </div>

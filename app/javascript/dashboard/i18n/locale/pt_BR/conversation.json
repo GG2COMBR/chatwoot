@@ -496,6 +496,7 @@
       "PLACEHOLDER": "Nenhuma"
     },
     "ACCORDION": {
+      "KANBAN_CRM": "Kanban CRM / Oportunidade",
       "CONTACT_DETAILS": "Detalhes do contato",
       "CONVERSATION_ACTIONS": "Ações da conversa",
       "CONVERSATION_LABELS": "Etiquetas da conversa",

@@ -62,6 +62,7 @@ RSpec.describe Custom::SeedService do
 
       expect(result[:purchase_flow]).to be_persisted
       expect(result[:purchase_flow].nodes.size).to be >= 10
+      expect(Custom::KanbanCard.where(account: result[:account]).count).to eq(4)
     end
 
     it 'is completely idempotent on multiple runs' do
@@ -84,6 +85,7 @@ RSpec.describe Custom::SeedService do
       expect(result[:inbox]).to be_nil
       expect(result[:flow]).to be_nil
       expect(result[:purchase_flow]).to be_nil
+      expect(Custom::KanbanCard.where(account: result[:account]).count).to eq(0)
       expect(result[:admin].email).to eq('admin@gg2.com.br')
     end
   end

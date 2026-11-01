@@ -1,0 +1,90 @@
+{
+  "KANBAN": {
+    "HEADER": {
+      "TITLE": "Kanban CRM",
+      "SUBTITLE": "• Gestão visual de oportunidades e funil de vendas",
+      "NEW_BOARD": "+ Novo Funil",
+      "NEW_OPPORTUNITY": "+ Nova Oportunidade",
+      "SEARCH_PLACEHOLDER": "Buscar oportunidade...",
+      "STATUS_ALL": "Status: Todos",
+      "STATUS_OPEN": "Aberto",
+      "STATUS_WON": "Ganho",
+      "STATUS_LOST": "Perdido",
+      "TOTAL_OPPORTUNITIES": "Total Oportunidades:",
+      "PIPELINE_VALUE": "Valor em Pipeline:",
+      "CLOSED_WON": "Fechados",
+      "SYNCED_WITH": "Sincronizado com o atributo de conversa:"
+    },
+    "EMPTY_STATE": {
+      "TITLE": "Nenhum Quadro Kanban Encontrado",
+      "DESCRIPTION": "Crie seu primeiro funil comercial para gerenciar leads, propostas, contratos e sincronizar automaticamente com os atendimentos do WhatsApp e Flowbuilder.",
+      "BUTTON": "Criar Primeiro Funil",
+      "NO_STAGES_TITLE": "Nenhuma etapa configurada neste funil",
+      "NO_STAGES_DESCRIPTION": "Adicione as etapas do seu processo comercial (ex: Lead, Qualificação, Proposta, Fechamento).",
+      "ADD_STAGE_BUTTON": "Adicionar Primeira Etapa",
+      "ADD_NEW_STAGE": "Adicionar Nova Etapa",
+      "STAGE_NAME_LABEL": "Nome da Etapa *",
+      "STAGE_NAME_PLACEHOLDER": "Ex: Proposta Enviada, Visita Agendada...",
+      "STAGE_COLOR_LABEL": "Cor de Identificação"
+    },
+    "COLUMN": {
+      "TOTAL": "Total:",
+      "ADD_OPPORTUNITY": "Adicionar Oportunidade",
+      "NEW_OPP_TOOLTIP": "Nova Oportunidade nesta etapa"
+    },
+    "CARD": {
+      "PRIORITY_URGENT": "Urgente",
+      "PRIORITY_HIGH": "Alta",
+      "PRIORITY_MEDIUM": "Média",
+      "PRIORITY_LOW": "Baixa",
+      "STATUS_WON": "Ganho",
+      "STATUS_LOST": "Perdido"
+    },
+    "MODAL": {
+      "CREATE_TITLE": "Nova Oportunidade",
+      "EDIT_TITLE": "Detalhes da Oportunidade",
+      "SAVE_BUTTON": "Salvar Oportunidade",
+      "TAB_DETAILS": "Dados Principais",
+      "TAB_NOTES": "Anotações & Histórico",
+      "TITLE_LABEL": "Título da Oportunidade *",
+      "TITLE_PLACEHOLDER": "Ex: Aquisição de Implante, Contrato Anual...",
+      "VALUE_LABEL": "Valor Estimado (R$)",
+      "STAGE_LABEL": "Estágio do Funil *",
+      "PRIORITY_LABEL": "Prioridade",
+      "STATUS_LABEL": "Status da Negociação",
+      "DESCRIPTION_LABEL": "Descrição / Informações Relevantes",
+      "DESCRIPTION_PLACEHOLDER": "Detalhes sobre a negociação ou necessidades do cliente...",
+      "LINKED_CONVERSATION": "Conversa Vinculada",
+      "OPEN_CONVERSATION": "Abrir Conversa",
+      "DELETE_CARD": "Excluir Oportunidade",
+      "DELETE_CONFIRM": "Deseja realmente excluir esta oportunidade?",
+      "ADD_NOTE_PLACEHOLDER": "Adicione um recado interno ou histórico desta negociação...",
+      "SAVE_NOTE_BUTTON": "Salvar Anotação",
+      "NO_NOTES": "Nenhuma anotação registrada ainda."
+    },
+    "BOARD_MODAL": {
+      "TITLE": "Novo Quadro de CRM",
+      "DESCRIPTION": "Crie um novo funil de atendimento e vendas para sua equipe.",
+      "NAME_LABEL": "Nome do Funil *",
+      "NAME_PLACEHOLDER": "Ex: Funil de Vendas, Pós-Venda, Cobrança...",
+      "DESC_LABEL": "Descrição (opcional)",
+      "DESC_PLACEHOLDER": "Finalidade deste funil...",
+      "SYNC_ATTR_LABEL": "Vincular a Atributo Customizado da Conversa",
+      "SYNC_ATTR_NONE": "Nenhum (usar apenas gestão interna do CRM)",
+      "SYNC_ATTR_HELP": "Se selecionado, alterar o estágio no Kanban atualizará o atributo na conversa, e vice-versa.",
+      "AUTO_CREATE_CARDS": "Criar card automaticamente para novas conversas",
+      "SUBMIT_BUTTON": "Criar Quadro"
+    },
+    "WIDGET": {
+      "LOADING": "Carregando CRM...",
+      "FUNNEL_LABEL": "Funil",
+      "STAGE_LABEL": "Etapa Atual",
+      "VALUE_LABEL": "Valor",
+      "STATUS_LABEL": "Status",
+      "VIEW_BOARD": "Visualizar no Quadro Geral",
+      "NO_CARD_DESC": "Esta conversa ainda não possui oportunidade vinculada ao funil.",
+      "TITLE_PLACEHOLDER": "Ex: Negócio com",
+      "CREATE_BUTTON": "+ Criar Oportunidade"
+    }
+  }
+}

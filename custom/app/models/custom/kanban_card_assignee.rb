@@ -8,4 +8,12 @@ class Custom::KanbanCardAssignee < ApplicationRecord
   belongs_to :user, class_name: '::User'
 
   validates :user_id, uniqueness: { scope: :custom_kanban_card_id }
+
+  before_validation :set_account, on: :create
+
+  private
+
+  def set_account
+    self.account_id ||= custom_kanban_card&.account_id
+  end
 end
