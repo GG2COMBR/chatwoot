@@ -115,10 +115,36 @@ const processNode = node => {
       case 'human_transfer': {
         const teamName = node.data?.team_name || (node.data?.team_id ? `Equipe #${node.data.team_id}` : 'Fila Geral');
         const agentName = node.data?.agent_name ? ` • Atendente: ${node.data.agent_name}` : '';
-        addSystemNotice(`👤 Conversa transferida para: ${teamName}${agentName}`);
-        const defaultMsg = `Um momento, transferindo seu atendimento para ${teamName}...`;
-        const msg = interpolate(node.data?.transfer_message || defaultMsg);
-        addBotMessage(msg);
+        const destination = `${teamName}${agentName}`;
+
+        const hasHours = node.data?.enable_business_hours !== false;
+        const now = new Date();
+        const currentTimeMins = now.getHours() * 60 + now.getMinutes();
+
+        const [openH, openM] = (node.data?.open_hour || '08:00').split(':').map(Number);
+        const [closeH, closeM] = (node.data?.close_hour || '18:00').split(':').map(Number);
+        const openMins = (openH || 8) * 60 + (openM || 0);
+        const closeMins = (closeH || 18) * 60 + (closeM || 0);
+
+        const currentDayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
+        const workingDays = node.data?.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        const isDayOpen = workingDays.includes(currentDayKey);
+        const isTimeOpen = currentTimeMins >= openMins && currentTimeMins < closeMins;
+
+        const isOpen = !hasHours || (isDayOpen && isTimeOpen);
+
+        if (isOpen) {
+          addSystemNotice(`👤 Transferência: ${destination} [🟢 No Expediente]`);
+          const defaultMsg = `Um momento, transferindo seu atendimento para ${teamName}...`;
+          const msg = interpolate(node.data?.transfer_message || defaultMsg);
+          addBotMessage(msg);
+        } else {
+          addSystemNotice(`🌙 Transferência: ${destination} [🟡 Fora do Expediente]`);
+          const defaultClosed = `Olá! Nosso horário de atendimento é de segunda a sexta, das ${node.data?.open_hour || '08:00'} às ${node.data?.close_hour || '18:00'}. Já registramos seu contato e responderemos assim que retornarmos!`;
+          const msg = interpolate(node.data?.out_of_office_message || defaultClosed);
+          addBotMessage(msg);
+        }
+
         isSimulating.value = false;
         break;
       }

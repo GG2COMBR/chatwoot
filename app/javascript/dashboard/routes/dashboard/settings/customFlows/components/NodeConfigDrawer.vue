@@ -556,18 +556,202 @@ const onProviderChange = provider => {
       </div>
 
       <!-- Configuração por Tipo: Transferir para Atendente -->
-      <div v-if="node.type === 'human_transfer'" class="flex flex-col gap-3">
+      <div v-if="node.type === 'human_transfer'" class="flex flex-col gap-4">
+        <!-- Seleção de Equipe (Time) -->
         <div>
-          <label class="block text-xs font-medium text-n-slate-11 mb-1">
-            Mensagem de Transferência
+          <label class="block text-xs font-medium text-n-slate-11 mb-1.5">
+            Equipe / Fila de Atendimento
+          </label>
+          <div class="relative">
+            <select
+              :value="nodeData.team_id || ''"
+              class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand appearance-none pr-8 cursor-pointer font-medium"
+              @change="handleTeamSelect"
+            >
+              <option value="">Nenhuma equipe específica (Fila Geral)</option>
+              <option
+                v-for="team in teamsList"
+                :key="team.id"
+                :value="team.id"
+              >
+                👥 {{ team.name }}
+              </option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-n-slate-9">
+              <Icon icon="i-lucide-chevron-down" class="size-4" />
+            </div>
+          </div>
+          <p class="text-[11px] text-n-slate-10 mt-1">
+            A conversa será transferida para a fila dos atendentes deste time.
+          </p>
+        </div>
+
+        <!-- Seleção de Atendente Responsável -->
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1.5">
+            Atendente Responsável (Opcional)
+          </label>
+          <div class="relative">
+            <select
+              :value="nodeData.assigned_agent_id || nodeData.agent_id || ''"
+              class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand appearance-none pr-8 cursor-pointer font-medium"
+              @change="handleAgentSelect"
+            >
+              <option value="">Distribuição automática (Round-Robin da equipe)</option>
+              <option
+                v-for="agent in agentsList"
+                :key="agent.id"
+                :value="agent.id"
+              >
+                👤 {{ agent.name }} ({{ agent.email }})
+              </option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-n-slate-9">
+              <Icon icon="i-lucide-chevron-down" class="size-4" />
+            </div>
+          </div>
+          <p class="text-[11px] text-n-slate-10 mt-1">
+            Se selecionado, atribui a conversa diretamente a este atendente humano.
+          </p>
+        </div>
+
+        <!-- Horário de Atendimento & Expediente -->
+        <div class="p-3 rounded-xl border border-n-strong bg-n-solid-2 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-semibold text-n-slate-12 flex items-center gap-1.5">
+                <Icon icon="i-lucide-clock" class="size-3.5 text-n-brand" />
+                Controle de Horário de Atendimento
+              </span>
+              <p class="text-[11px] text-n-slate-10 mt-0.5">
+                Valida se o cliente está entrando em contato dentro do expediente.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                :checked="nodeData.enable_business_hours !== false"
+                class="sr-only peer"
+                @change="updateData('enable_business_hours', $event.target.checked)"
+              />
+              <div class="w-8 h-4 bg-n-slate-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-n-brand"></div>
+            </label>
+          </div>
+
+          <div v-if="nodeData.enable_business_hours !== false" class="flex flex-col gap-3 pt-2 border-t border-n-strong/60">
+            <!-- Dias da Semana -->
+            <div>
+              <label class="block text-[11px] font-medium text-n-slate-11 mb-1.5">
+                Dias de Atendimento
+              </label>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button
+                  v-for="day in DAYS_OF_WEEK"
+                  :key="day.key"
+                  type="button"
+                  class="px-2.5 py-1 text-xs rounded-lg font-medium transition-all"
+                  :class="[
+                    isDayActive(day.key)
+                      ? 'bg-n-brand text-white shadow-sm'
+                      : 'bg-n-alpha-2 text-n-slate-11 hover:bg-n-alpha-3 border border-n-strong'
+                  ]"
+                  @click="toggleWorkingDay(day.key)"
+                >
+                  {{ day.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Intervalo de Horário -->
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-medium text-n-slate-11 mb-1">
+                  Horário de Início
+                </label>
+                <input
+                  :value="nodeData.open_hour || '08:00'"
+                  type="time"
+                  class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-n-strong bg-n-solid-1 text-n-slate-12 outline-none focus:border-n-brand font-medium"
+                  @change="updateData('open_hour', $event.target.value)"
+                />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-n-slate-11 mb-1">
+                  Horário de Término
+                </label>
+                <input
+                  :value="nodeData.close_hour || '18:00'"
+                  type="time"
+                  class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-n-strong bg-n-solid-1 text-n-slate-12 outline-none focus:border-n-brand font-medium"
+                  @change="updateData('close_hour', $event.target.value)"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mensagem Dentro do Expediente -->
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1 flex items-center gap-1.5">
+            <span class="size-2 rounded-full bg-emerald-500"></span>
+            Mensagem DENTRO do Expediente
           </label>
           <textarea
             :value="nodeData.transfer_message || ''"
-            rows="3"
-            placeholder="Ex: Um momento, estou transferindo seu contato para nossa equipe comercial..."
-            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
+            rows="2"
+            placeholder="Ex: Um momento, {{contact.first_name}}, estou transferindo seu contato para nossa equipe..."
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
             @input="updateData('transfer_message', $event.target.value)"
           />
+          <div class="flex items-center gap-1 mt-1 flex-wrap">
+            <span class="text-[10px] text-n-slate-10">Inserir:</span>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-1.5 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('transfer_message', VAR_CONTACT_FIRST_NAME)"
+            >
+              {{ VAR_CONTACT_FIRST_NAME }}
+            </button>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-1.5 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('transfer_message', VAR_CONTACT_NAME)"
+            >
+              {{ VAR_CONTACT_NAME }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Mensagem Fora do Expediente -->
+        <div v-if="nodeData.enable_business_hours !== false">
+          <label class="block text-xs font-medium text-n-slate-11 mb-1 flex items-center gap-1.5">
+            <span class="size-2 rounded-full bg-amber-500"></span>
+            Mensagem FORA do Expediente (Offline)
+          </label>
+          <textarea
+            :value="nodeData.out_of_office_message || ''"
+            rows="2"
+            placeholder="Ex: Olá, {{contact.first_name}}! Nosso atendimento funciona de Seg a Sex, das 08h às 18h. Já registramos sua mensagem e responderemos assim que retornarmos!"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
+            @input="updateData('out_of_office_message', $event.target.value)"
+          />
+          <div class="flex items-center gap-1 mt-1 flex-wrap">
+            <span class="text-[10px] text-n-slate-10">Inserir:</span>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-1.5 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('out_of_office_message', VAR_CONTACT_FIRST_NAME)"
+            >
+              {{ VAR_CONTACT_FIRST_NAME }}
+            </button>
+            <button
+              type="button"
+              class="text-[10px] bg-n-alpha-2 hover:bg-n-brand/10 hover:text-n-brand text-n-slate-11 px-1.5 py-0.5 rounded font-mono transition-colors"
+              @click="appendVariable('out_of_office_message', VAR_CONTACT_NAME)"
+            >
+              {{ VAR_CONTACT_NAME }}
+            </button>
+          </div>
         </div>
       </div>
 
