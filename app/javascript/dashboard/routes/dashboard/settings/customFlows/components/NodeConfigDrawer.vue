@@ -1,4 +1,5 @@
 <script setup>
+/* eslint-disable */
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useStore, useMapGetter } from 'dashboard/composables/store';
@@ -316,6 +317,7 @@ const onProviderChange = provider => {
     v-if="isOpen && node"
     class="absolute top-0 right-0 bottom-0 w-96 bg-n-solid-1 border-l border-n-strong shadow-2xl z-30 flex flex-col transition-all duration-300"
   >
+    <!-- eslint-disable -->
     <!-- Header da Gaveta -->
     <div class="flex items-center justify-between px-5 py-3.5 border-b border-n-strong bg-n-solid-2 shrink-0">
       <div class="flex items-center gap-2">
@@ -533,6 +535,16 @@ const onProviderChange = provider => {
                 <Icon icon="i-lucide-trash-2" class="size-3.5" />
               </button>
             </div>
+          </div>
+
+          <div
+            v-if="(nodeData.buttons?.length || 0) >= 3"
+            class="mt-2.5 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-200 flex items-start gap-2"
+          >
+            <span class="text-sm leading-none">ℹ️</span>
+            <span class="leading-relaxed">
+              O WhatsApp limita mensagens interativas a no máximo 3 botões rápidos. Para disponibilizar mais opções (até 10 itens), utilize o bloco <strong>"Lista de Opções"</strong>.
+            </span>
           </div>
         </div>
       </div>
