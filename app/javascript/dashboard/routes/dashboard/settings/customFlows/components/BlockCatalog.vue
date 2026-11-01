@@ -49,16 +49,6 @@ const availableBlocks = [
     },
   },
   {
-    type: 'business_hours',
-    label: 'Horário de Atendimento',
-    icon: 'i-lucide-clock',
-    color: 'hover:border-blue-600/50 hover:bg-blue-600/5 text-blue-700 dark:text-blue-300',
-    defaultData: {
-      label: 'Checar Horário',
-      offline_message: 'Nosso expediente encerrou. Retornaremos em breve!',
-    },
-  },
-  {
     type: 'ai_fallback',
     label: 'Assistente IA (Multi-LLM)',
     icon: 'i-lucide-sparkles',
@@ -79,7 +69,15 @@ const availableBlocks = [
     color: 'hover:border-teal-500/50 hover:bg-teal-500/5 text-teal-600 dark:text-teal-400',
     defaultData: {
       label: 'Transferir Atendente',
-      transfer_message: 'Um momento, estou transferindo você para um atendente...',
+      team_id: null,
+      team_name: '',
+      assigned_agent_id: null,
+      enable_business_hours: true,
+      working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+      open_hour: '08:00',
+      close_hour: '18:00',
+      transfer_message: 'Um momento, estou transferindo seu contato para nossa equipe...',
+      out_of_office_message: 'Olá! Nosso horário de atendimento é de Segunda a Sexta, das 08h às 18h. Já registramos sua mensagem e responderemos assim que retornarmos!',
     },
   },
   {
