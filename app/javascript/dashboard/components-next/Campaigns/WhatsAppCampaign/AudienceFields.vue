@@ -9,6 +9,7 @@ import Button from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiSelectComboBox.vue';
 import AudienceLabelContacts from './AudienceLabelContacts.vue';
+import SpreadsheetAudienceFields from './SpreadsheetAudienceFields.vue';
 
 const props = defineProps({
   labels: {
@@ -19,9 +20,29 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  templateVariables: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const audienceIds = defineModel({ type: Array, default: () => [] });
+const audienceType = defineModel('audienceType', {
+  type: String,
+  default: 'labels',
+});
+const audienceFile = defineModel('audienceFile', {
+  type: [Object, File],
+  default: null,
+});
+const columnMapping = defineModel('columnMapping', {
+  type: Object,
+  default: () => ({}),
+});
+const phoneColumn = defineModel('phoneColumn', {
+  type: String,
+  default: '',
+});
 
 const WHATSAPP_LIMITS_URL =
   'https://developers.facebook.com/docs/whatsapp/messaging-limits';
@@ -106,61 +127,98 @@ watch(
     </a>
   </p>
 
-  <div class="flex flex-col gap-1">
-    <label
-      for="campaign-audience"
-      class="mb-0.5 text-heading-3 text-n-slate-12"
+  <div class="flex items-center gap-2 p-1 rounded-lg bg-n-alpha-1 w-fit mb-2">
+    <button
+      type="button"
+      class="px-3 py-1.5 text-body-small font-medium rounded-md transition-colors"
+      :class="
+        audienceType === 'labels'
+          ? 'bg-n-surface-1 text-n-slate-12 shadow-sm'
+          : 'text-n-slate-11 hover:text-n-slate-12'
+      "
+      @click="audienceType = 'labels'"
     >
-      {{ t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.LABELS.LABEL') }}
-    </label>
-    <TagMultiSelectComboBox
-      id="campaign-audience"
-      v-model="audienceIds"
-      :options="labelOptions"
-      :placeholder="t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.LABELS.PLACEHOLDER')"
-    />
+      {{ t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.TYPE_LABELS') }}
+    </button>
+    <button
+      type="button"
+      class="px-3 py-1.5 text-body-small font-medium rounded-md transition-colors"
+      :class="
+        audienceType === 'spreadsheet'
+          ? 'bg-n-surface-1 text-n-slate-12 shadow-sm'
+          : 'text-n-slate-11 hover:text-n-slate-12'
+      "
+      @click="audienceType = 'spreadsheet'"
+    >
+      {{ t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.TYPE_SPREADSHEET') }}
+    </button>
   </div>
 
-  <div v-if="selectedLabels.length" class="flex flex-col">
-    <span class="mb-3 text-body-main text-n-slate-11">
-      {{
-        t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.SELECTED_COUNT', {
-          count: totalContacts,
-        })
-      }}
-    </span>
-    <div
-      v-for="label in selectedLabels"
-      :key="label.id"
-      class="flex items-center h-14 gap-3 border-b border-n-weak last:border-b-0"
-    >
-      <span
-        class="rounded-sm size-2.5 shrink-0"
-        :style="{ backgroundColor: label.color }"
-      />
-      <span class="min-w-0 truncate text-body-main text-n-slate-12">
-        {{ label.title }}
-      </span>
-      <span
-        class="flex items-center gap-1.5 shrink-0 text-body-main text-n-slate-11"
+  <SpreadsheetAudienceFields
+    v-if="audienceType === 'spreadsheet'"
+    v-model:file="audienceFile"
+    v-model:mapping="columnMapping"
+    v-model:phone-column="phoneColumn"
+    :template-variables="templateVariables"
+  />
+
+  <template v-else>
+    <div class="flex flex-col gap-1">
+      <label
+        for="campaign-audience"
+        class="mb-0.5 text-heading-3 text-n-slate-12"
       >
-        <Icon icon="i-lucide-users" class="size-4" />
-        {{ contactCounts[label.id] ?? 0 }}
+        {{ t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.LABELS.LABEL') }}
+      </label>
+      <TagMultiSelectComboBox
+        id="campaign-audience"
+        v-model="audienceIds"
+        :options="labelOptions"
+        :placeholder="t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.LABELS.PLACEHOLDER')"
+      />
+    </div>
+
+    <div v-if="selectedLabels.length" class="flex flex-col">
+      <span class="mb-3 text-body-main text-n-slate-11">
+        {{
+          t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.SELECTED_COUNT', {
+            count: totalContacts,
+          })
+        }}
       </span>
-      <div class="flex items-center gap-2 shrink-0 ms-auto">
-        <AudienceLabelContacts :label="label" />
-        <span class="w-px h-2 ms-1 bg-n-strong" />
-        <Button
-          variant="ghost"
-          color="slate"
-          size="sm"
-          icon="i-lucide-trash"
-          @click="removeLabel(label.id)"
+      <div
+        v-for="label in selectedLabels"
+        :key="label.id"
+        class="flex items-center h-14 gap-3 border-b border-n-weak last:border-b-0"
+      >
+        <span
+          class="rounded-sm size-2.5 shrink-0"
+          :style="{ backgroundColor: label.color }"
         />
+        <span class="min-w-0 truncate text-body-main text-n-slate-12">
+          {{ label.title }}
+        </span>
+        <span
+          class="flex items-center gap-1.5 shrink-0 text-body-main text-n-slate-11"
+        >
+          <Icon icon="i-lucide-users" class="size-4" />
+          {{ contactCounts[label.id] ?? 0 }}
+        </span>
+        <div class="flex items-center gap-2 shrink-0 ms-auto">
+          <AudienceLabelContacts :label="label" />
+          <span class="w-px h-2 ms-1 bg-n-strong" />
+          <Button
+            variant="ghost"
+            color="slate"
+            size="sm"
+            icon="i-lucide-trash"
+            @click="removeLabel(label.id)"
+          />
+        </div>
       </div>
     </div>
-  </div>
-  <p v-else class="mb-0 text-body-main text-n-slate-11">
-    {{ t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.EMPTY_STATE') }}
-  </p>
+    <p v-else class="mb-0 text-body-main text-n-slate-11">
+      {{ t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.EMPTY_STATE') }}
+    </p>
+  </template>
 </template>

@@ -160,7 +160,15 @@
       "FORM": {
         "CREATE_TITLE": "Create campaign",
         "LIVE_TEST": "Live test",
-        "LIVE_TEST_TOOLTIP": "Live test will be available soon",
+        "LIVE_TEST_TOOLTIP": "Send an immediate test of this template directly to your WhatsApp",
+        "LIVE_TEST_TITLE": "Send live test message",
+        "LIVE_TEST_DESC": "Send an immediate test of this template directly to your WhatsApp to verify formatting before dispatching the campaign.",
+        "TEST_PHONE_LABEL": "Your WhatsApp phone number",
+        "TEST_PHONE_PLACEHOLDER": "+5511999999999",
+        "TEST_PHONE_HINT": "Include country code (e.g. +55 for Brazil)",
+        "SEND_TEST_BUTTON": "Send test message",
+        "LIVE_TEST_SUCCESS": "Test message sent successfully to your WhatsApp!",
+        "LIVE_TEST_ERROR": "Failed to send test message. Check the phone number and template settings.",
         "SCHEDULE": "Schedule campaign",
         "SCHEDULED_FOR": "Scheduled for {date}",
         "RESCHEDULE": "Reschedule",
@@ -179,6 +187,8 @@
         },
         "AUDIENCE": {
           "TITLE": "Audience",
+          "TYPE_LABELS": "By labels",
+          "TYPE_SPREADSHEET": "By spreadsheet (CSV)",
           "TIER_DESCRIPTION": "Your WhatsApp account can message up to {tier}.",
           "TIER_UNKNOWN": "Select an inbox to see the messaging limit of your WhatsApp account.",
           "LEARN_MORE": "Learn more",
@@ -189,6 +199,15 @@
           "SELECTED_COUNT": "{count} contacts selected",
           "VIEW": "View",
           "EMPTY_STATE": "Select at least one label to build the audience.",
+          "SPREADSHEET": {
+            "UPLOAD_TITLE": "Upload audience CSV file",
+            "UPLOAD_SUBTITLE": "Drag and drop your .csv file here, or click to browse",
+            "DETECTED_COLUMNS": "{count} columns detected",
+            "PHONE_COLUMN_LABEL": "Phone number column",
+            "SELECT_COLUMN": "Select a column",
+            "VARIABLES_MAPPING": "Map template variables to spreadsheet columns",
+            "PARSE_ERROR": "Could not parse spreadsheet file"
+          },
           "CONTACTS": {
             "TITLE": "Contacts",
             "TAGGED_WITH": "tagged with",

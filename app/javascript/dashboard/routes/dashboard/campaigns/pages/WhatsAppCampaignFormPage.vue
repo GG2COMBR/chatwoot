@@ -31,6 +31,7 @@ import TemplateFields from 'dashboard/components-next/Campaigns/WhatsAppCampaign
 import AccountInformationCard from 'dashboard/components-next/Campaigns/WhatsAppCampaign/AccountInformationCard.vue';
 import MessagePreviewCard from 'dashboard/components-next/Campaigns/WhatsAppCampaign/MessagePreviewCard.vue';
 import SchedulePopover from 'dashboard/components-next/Campaigns/WhatsAppCampaign/SchedulePopover.vue';
+import LiveTestDialog from 'dashboard/components-next/Campaigns/WhatsAppCampaign/LiveTestDialog.vue';
 
 const SECTION_FIELDS = {
   basic: ['title', 'inboxId'],
@@ -55,6 +56,10 @@ const buildState = () => ({
   templateId: null,
   processedParams: {},
   audienceIds: [],
+  audienceType: 'labels',
+  audienceFile: null,
+  columnMapping: {},
+  phoneColumn: '',
   scheduledAt: '',
 });
 
@@ -64,6 +69,7 @@ const state = reactive(buildState());
 const savedState = ref(buildState());
 const hydratedId = ref(null);
 const healthData = ref(null);
+const showLiveTestDialog = ref(false);
 
 const campaignId = computed(() => route.params.campaignId);
 const isEditMode = computed(() => Boolean(campaignId.value));
@@ -217,11 +223,22 @@ const isTemplateComplete = computed(
     isValidTemplateMediaUrl(state.processedParams.header?.media_url)
 );
 
+const isAudienceValid = computed(() => {
+  if (state.audienceType === 'spreadsheet') {
+    return Boolean(state.audienceFile && state.phoneColumn);
+  }
+  return state.audienceIds.length > 0;
+});
+
+const templateVariables = computed(() =>
+  Object.keys(state.processedParams.body ?? {})
+);
+
 const isValid = computed(
   () =>
-    !!state.title &&
-    !!state.inboxId &&
-    state.audienceIds.length > 0 &&
+    Boolean(state.title) &&
+    Boolean(state.inboxId) &&
+    isAudienceValid.value &&
     isTemplateComplete.value
 );
 
@@ -248,15 +265,22 @@ const templatePayload = computed(() => {
   const bodyText =
     findComponentByType(template, COMPONENT_TYPES.BODY)?.text ?? '';
 
+  const templateParams = {
+    name: template.name,
+    namespace: template.namespace ?? '',
+    category: template.category ?? DEFAULT_CATEGORY,
+    language: template.language ?? DEFAULT_LANGUAGE,
+    processed_params: state.processedParams,
+  };
+
+  if (state.audienceType === 'spreadsheet') {
+    templateParams.spreadsheet_column_mapping = state.columnMapping;
+    templateParams.phone_column = state.phoneColumn;
+  }
+
   return {
     message: renderTemplatePreview(bodyText, state.processedParams.body ?? {}),
-    template_params: {
-      name: template.name,
-      namespace: template.namespace ?? '',
-      category: template.category ?? DEFAULT_CATEGORY,
-      language: template.language ?? DEFAULT_LANGUAGE,
-      processed_params: state.processedParams,
-    },
+    template_params: templateParams,
   };
 });
 
@@ -329,13 +353,20 @@ const handleSectionSave = async section => {
 
 const handleCreate = async scheduledAt => {
   try {
-    await store.dispatch('campaigns/create', {
+    const payload = {
       title: state.title,
       inbox_id: state.inboxId,
-      audience: audiencePayload.value,
+      audience:
+        state.audienceType === 'spreadsheet' ? [] : audiencePayload.value,
       scheduled_at: scheduledAt,
       ...templatePayload.value,
-    });
+    };
+
+    if (state.audienceType === 'spreadsheet' && state.audienceFile) {
+      payload.audience_file = state.audienceFile;
+    }
+
+    await store.dispatch('campaigns/create', payload);
     useTrack(CAMPAIGNS_EVENTS.CREATE_CAMPAIGN, {
       type: CAMPAIGN_TYPES.ONE_OFF,
     });
@@ -373,8 +404,9 @@ const handleReschedule = async () => {
             variant="faded"
             color="slate"
             size="sm"
-            disabled
+            :disabled="!state.inboxId || !isTemplateComplete"
             :label="t('CAMPAIGN.WHATSAPP.FORM.LIVE_TEST')"
+            @click="showLiveTestDialog = true"
           />
         </span>
         <SchedulePopover
@@ -434,14 +466,19 @@ const handleReschedule = async () => {
           :title="t('CAMPAIGN.WHATSAPP.FORM.AUDIENCE.TITLE')"
           :is-dirty="isSectionDirty('audience')"
           :is-saving="uiFlags.isUpdating"
-          :is-save-disabled="!state.audienceIds.length"
+          :is-save-disabled="!isAudienceValid"
           @discard="handleDiscard('audience')"
           @save="handleSectionSave('audience')"
         >
           <AudienceFields
             v-model="state.audienceIds"
+            v-model:audience-type="state.audienceType"
+            v-model:audience-file="state.audienceFile"
+            v-model:column-mapping="state.columnMapping"
+            v-model:phone-column="state.phoneColumn"
             :labels="labels"
             :messaging-tier="messagingTier"
+            :template-variables="templateVariables"
           />
         </SectionCard>
 
@@ -470,5 +507,11 @@ const handleReschedule = async () => {
         />
       </div>
     </div>
+    <LiveTestDialog
+      v-if="showLiveTestDialog"
+      :inbox-id="state.inboxId"
+      :template-params="templatePayload.template_params"
+      @close="showLiveTestDialog = false"
+    />
   </div>
 </template>
