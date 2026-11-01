@@ -114,6 +114,14 @@ const nodePreview = computed(() => {
     const mdl = props.data?.model === 'custom' && props.data?.custom_model ? props.data.custom_model : (props.data?.model || 'amazon.nova-lite-v1:0');
     return `IA [${prov}]: ${mdl}`;
   }
+  if (props.type === 'human_transfer') {
+    const teamName = props.data?.team_name || (props.data?.team_id ? `Equipe #${props.data.team_id}` : null);
+    const agentName = props.data?.agent_name || (props.data?.assigned_agent_id ? `Atendente #${props.data.assigned_agent_id}` : null);
+    if (teamName && agentName) return `Destino: ${teamName} • ${agentName}`;
+    if (teamName) return `Equipe: ${teamName}`;
+    if (agentName) return `Atendente: ${agentName}`;
+    return props.data?.transfer_message || 'Transferir para atendimento humano';
+  }
   if (props.data?.text) return props.data.text;
   if (props.data?.body) return props.data.body;
   if (props.data?.stage_name) return `Estágio: ${props.data.stage_name}`;

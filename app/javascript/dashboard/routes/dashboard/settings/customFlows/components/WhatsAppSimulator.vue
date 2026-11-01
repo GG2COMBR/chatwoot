@@ -113,8 +113,12 @@ const processNode = node => {
         break;
       }
       case 'human_transfer': {
-        addSystemNotice('👤 Conversa transferida para a equipe de atendimento humano');
-        addBotMessage(node.data?.transfer_message || 'Um momento, transferindo seu contato...');
+        const teamName = node.data?.team_name || (node.data?.team_id ? `Equipe #${node.data.team_id}` : 'Fila Geral');
+        const agentName = node.data?.agent_name ? ` • Atendente: ${node.data.agent_name}` : '';
+        addSystemNotice(`👤 Conversa transferida para: ${teamName}${agentName}`);
+        const defaultMsg = `Um momento, transferindo seu atendimento para ${teamName}...`;
+        const msg = interpolate(node.data?.transfer_message || defaultMsg);
+        addBotMessage(msg);
         isSimulating.value = false;
         break;
       }
