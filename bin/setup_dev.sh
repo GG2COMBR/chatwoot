@@ -10,9 +10,21 @@
 set -e
 
 RESET_DB=false
-if [ "$1" == "--reset" ]; then
-  RESET_DB=true
-fi
+WITH_DEMO=true
+
+for arg in "$@"; do
+  case $arg in
+    --reset)
+      RESET_DB=true
+      ;;
+    --no-demo)
+      WITH_DEMO=false
+      ;;
+    --with-demo)
+      WITH_DEMO=true
+      ;;
+  esac
+done
 
 # Cores para feedback visual
 GREEN='\033[0;32m'
@@ -87,34 +99,45 @@ fi
 # 6. Preparar Banco de Dados
 echo -e "\n${BLUE}[5/7] Configurando banco de dados (Host: $DB_HOST)...${NC}"
 if [ "$RESET_DB" = true ]; then
-  echo -e "${YELLOW}⚠️  Modo --reset ativado: Recriando banco do zero...${NC}"
-  POSTGRES_HOST=$DB_HOST bundle exec rails db:drop || true
+  echo -e "${YELLOW}⚠️  Modo --reset ativado: Encerrando conexões ativas e recriando banco do zero...${NC}"
+  POSTGRES_HOST=$DB_HOST bundle exec rails runner "
+    target_db = ActiveRecord::Base.connection_db_config.database
+    ActiveRecord::Base.establish_connection(ActiveRecord::Base.connection_db_config.configuration_hash.merge(database: 'postgres'))
+    ActiveRecord::Base.connection.execute(\"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '#{target_db}' AND pid <> pg_backend_pid();\")
+    ActiveRecord::Base.connection.execute(\"DROP DATABASE IF EXISTS #{target_db};\")
+    puts '   ✓ Banco de dados ' + target_db + ' removido completamente.'
+  "
   POSTGRES_HOST=$DB_HOST bundle exec rails db:create
+  echo -e "Carregando schema limpo..."
+  POSTGRES_HOST=$DB_HOST bundle exec rails db:schema:load
 fi
 
-echo -e "Executando migrações do core e custom..."
+echo -e "Executando migrações customizadas..."
 POSTGRES_HOST=$DB_HOST bundle exec rails db:migrate
+git checkout -- app/ enterprise/ db/schema.rb 2>/dev/null || true
 
 # 7. Executar Seeds Canônicos
-echo -e "\n${BLUE}[6/7] Populando banco de dados com fixtures e Enterprise Edition...${NC}"
-if [ "$RESET_DB" = true ]; then
-  echo -e "Executando rails db:seed (contas nativas)..."
-  POSTGRES_HOST=$DB_HOST bundle exec rails db:seed
+echo -e "\n${BLUE}[6/7] Populando banco de dados com Enterprise Edition e credenciais...${NC}"
+if [ "$WITH_DEMO" = true ]; then
+  echo -e "Executando rails custom:seed com dados demonstrativos completos..."
+  WITH_DEMO=true POSTGRES_HOST=$DB_HOST bundle exec rails custom:seed
+else
+  echo -e "Executando rails custom:seed em modo mínimo limpo (sem demonstração)..."
+  WITH_DEMO=false POSTGRES_HOST=$DB_HOST bundle exec rails custom:seed
 fi
-
-echo -e "Executando rails custom:seed (Enterprise, Bedrock, Funis Kanban e URA)..."
-POSTGRES_HOST=$DB_HOST bundle exec rails custom:seed
 
 # 8. Smoke Test
 echo -e "\n${BLUE}[7/7] Executando Smoke Test de Integridade...${NC}"
 POSTGRES_HOST=$DB_HOST bundle exec rails runner "
+  accounts = Account.pluck(:id, :name)
   account = Account.find_by('lower(name) = ?', 'gg2 tecnologia')
   pricing_plan = InstallationConfig.find_by(name: 'INSTALLATION_PRICING_PLAN')&.value
   boards_count = Custom::KanbanBoard.where(account_id: account.id).count
   stages_count = Custom::KanbanStage.where(account_id: account.id).count
   flows_count = Custom::Flow.where(account_id: account.id).count
 
-  puts '   ✓ Conta: ' + account.name + ' (ID: ' + account.id.to_s + ')'
+  puts '   ✓ Contas existentes no banco: ' + accounts.inspect
+  puts '   ✓ Conta ativa: ' + account.name + ' (ID: ' + account.id.to_s + ')'
   puts '   ✓ Plano Enterprise: ' + (pricing_plan == 'enterprise' ? 'ATIVO' : 'INATIVO')
   puts '   ✓ Funis Kanban: ' + boards_count.to_s + ' funil(is) com ' + stages_count.to_s + ' estágios'
   puts '   ✓ Fluxos Flowbuilder: ' + flows_count.to_s + ' fluxo(s) configurado(s)'
