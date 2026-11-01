@@ -252,6 +252,14 @@ const backToList = () => {
     params: { accountId: route.params.accountId },
   });
 };
+
+const openTriggerDrawer = () => {
+  const startNode = nodes.value.find(n => n.id === 'start' || n.type === 'start');
+  if (startNode) {
+    selectedNode.value = startNode;
+    isDrawerOpen.value = true;
+  }
+};
 </script>
 
 <template>
@@ -278,6 +286,23 @@ const backToList = () => {
             {{ flow.status === 'published' ? 'Publicado' : 'Rascunho' }}
           </span>
         </div>
+
+        <!-- Atalho Rápido de Gatilhos & Automações -->
+        <button
+          v-if="flow"
+          type="button"
+          class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors"
+          :class="(flow?.linked_automation_rules && flow.linked_automation_rules.length > 0)
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20'
+            : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'"
+          title="Ver e configurar regras de automação que disparam este fluxo"
+          @click="openTriggerDrawer"
+        >
+          <Icon icon="i-lucide-zap" class="size-3.5" />
+          <span>{{ (flow?.linked_automation_rules && flow.linked_automation_rules.length > 0)
+            ? `${flow.linked_automation_rules.length} gatilho(s)`
+            : 'Configurar gatilho' }}</span>
+        </button>
 
         <!-- Campo Personalizado de Conversa para Status -->
         <div class="hidden lg:flex items-center gap-2 pl-4 border-l border-n-strong">
@@ -345,6 +370,7 @@ const backToList = () => {
       <NodeConfigDrawer
         :is-open="isDrawerOpen"
         :node="selectedNode"
+        :flow="flow"
         @close="closeDrawer"
         @update="handleUpdateNode"
       />

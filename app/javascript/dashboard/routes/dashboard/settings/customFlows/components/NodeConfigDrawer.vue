@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useStore, useMapGetter } from 'dashboard/composables/store';
 import CustomFlowsAPI from 'dashboard/api/customFlows';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
@@ -77,6 +78,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  flow: {
+    type: Object,
+    default: () => ({}),
+  },
   isOpen: {
     type: Boolean,
     default: false,
@@ -84,6 +89,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'update']);
+
+const route = useRoute();
+const linkedRules = computed(() => props.flow?.linked_automation_rules || []);
 
 const nodeData = computed(() => props.node?.data || {});
 
@@ -359,8 +367,74 @@ const onProviderChange = provider => {
         </p>
       </div>
 
+      <!-- Configuração por Tipo: Início (Gatilhos de Automação) -->
+      <div v-if="node.type === 'start'" class="flex flex-col gap-3">
+        <div class="p-3.5 rounded-xl border border-n-weak bg-n-alpha-1 flex flex-col gap-2 text-xs text-n-slate-11">
+          <div class="flex items-center gap-2 text-n-slate-12 font-semibold">
+            <Icon icon="i-lucide-zap" class="size-4 text-amber-500" />
+            <span>Gatilhos de Entrada do Fluxo</span>
+          </div>
+          <p class="leading-relaxed">
+            Este fluxo é ativado através do <strong>Motor de Regras de Automação</strong> do Chatwoot (por caixa de entrada, primeira mensagem, palavras-chave ou etiquetas) ou vinculado a estágios do Kanban.
+          </p>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-n-slate-12">
+              Regras de Automação Vinculadas
+            </label>
+            <router-link
+              :to="{ name: 'automation_list', params: { accountId: route.params.accountId } }"
+              target="_blank"
+              class="text-[11px] text-n-brand hover:underline font-medium flex items-center gap-1"
+            >
+              <span>Gerenciar Automações</span>
+              <Icon icon="i-lucide-external-link" class="size-3" />
+            </router-link>
+          </div>
+
+          <div v-if="linkedRules && linkedRules.length > 0" class="flex flex-col gap-2">
+            <div
+              v-for="rule in linkedRules"
+              :key="rule.id"
+              class="p-2.5 rounded-lg border border-n-strong bg-n-solid-2 flex items-center justify-between text-xs"
+            >
+              <div class="flex flex-col">
+                <span class="font-medium text-n-slate-12">{{ rule.name }}</span>
+                <span class="text-[10px] text-n-slate-10">Evento: {{ rule.event_name }}</span>
+              </div>
+              <span
+                class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                :class="rule.active ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-n-alpha-2 text-n-slate-10'"
+              >
+                {{ rule.active ? 'Ativa' : 'Inativa' }}
+              </span>
+            </div>
+          </div>
+
+          <div
+            v-else
+            class="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 flex flex-col items-center text-center gap-2"
+          >
+            <Icon icon="i-lucide-alert-triangle" class="size-5 text-amber-500" />
+            <div class="text-xs text-n-slate-11">
+              Nenhuma regra de automação está configurada para disparar este fluxo ainda.
+            </div>
+            <router-link
+              :to="{ name: 'automation_list', params: { accountId: route.params.accountId } }"
+              target="_blank"
+              class="mt-1 px-3 py-1.5 rounded-lg bg-n-brand text-white text-xs font-medium hover:bg-n-brand/90 transition-colors flex items-center gap-1.5"
+            >
+              <Icon icon="i-lucide-plus" class="size-3.5" />
+              <span>Criar Regra de Automação</span>
+            </router-link>
+          </div>
+        </div>
+      </div>
+
       <!-- Configuração por Tipo: Mensagem -->
-      <div v-if="node.type === 'message' || node.type === 'start'">
+      <div v-if="node.type === 'message'">
         <label class="block text-xs font-medium text-n-slate-11 mb-1">
           Texto da Mensagem *
         </label>
