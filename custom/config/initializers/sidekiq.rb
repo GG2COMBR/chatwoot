@@ -2,14 +2,16 @@
 
 if defined?(Sidekiq)
   Sidekiq.configure_server do |config|
+    custom_queues = %w[flows_processing campaigns_processing].freeze
+
     if config.respond_to?(:default_capsule) && config.default_capsule
       current_queues = config.default_capsule.queues || []
-      config.default_capsule.queues = current_queues + ['flows_processing'] unless current_queues.include?('flows_processing')
+      config.default_capsule.queues = (current_queues + custom_queues).uniq
     end
 
     queues = config[:queues] || []
-    config[:queues] = queues + ['flows_processing'] unless queues.include?('flows_processing')
+    config[:queues] = (queues + custom_queues).uniq
 
-    Sidekiq.logger.info('[GG2 Custom] Dedicated queue :flows_processing registered successfully in Sidekiq server.')
+    Sidekiq.logger.info("[GG2 Custom] Dedicated queues #{custom_queues.join(', ')} registered successfully in Sidekiq server.")
   end
 end
