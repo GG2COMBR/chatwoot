@@ -289,8 +289,18 @@ const formatDate = dateString => {
                   >
                     {{ flow.status === 'published' ? 'Publicado' : 'Rascunho' }}
                   </span>
-                  <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-n-alpha-2 text-n-slate-11">
-                    {{ formatTrigger(flow.trigger_type) }}
+                  <span
+                    v-if="flow.linked_automation_rules_count && flow.linked_automation_rules_count > 0"
+                    class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1"
+                  >
+                    <Icon icon="i-lucide-zap" class="size-3" />
+                    {{ flow.linked_automation_rules_count }} gatilho(s)
+                  </span>
+                  <span
+                    v-else
+                    class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                  >
+                    Sem gatilhos
                   </span>
                 </div>
 
