@@ -115,7 +115,7 @@ class Custom::Flows::ExecutionEngine
 
   def schedule_inactivity_monitor(node)
     return unless session.active?
-    return if %w[finish team_assignment].include?(node[:type].to_s)
+    return if %w[finish team_assignment human_transfer].include?(node[:type].to_s)
 
     Custom::Flows::InactivityJob.schedule_for(session, node)
   end
@@ -126,6 +126,7 @@ class Custom::Flows::ExecutionEngine
       'interactive_buttons' => :dispatch_interactive,
       'interactive_list' => :dispatch_interactive,
       'team_assignment' => :dispatch_team_assignment,
+      'human_transfer' => :dispatch_team_assignment,
       'business_hours' => :evaluate_business_hours_node,
       'async_action' => :dispatch_async_action,
       'ai_fallback' => :dispatch_ai_fallback,

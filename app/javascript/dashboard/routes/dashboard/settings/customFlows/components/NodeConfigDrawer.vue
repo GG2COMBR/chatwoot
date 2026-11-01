@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
+import { useStore, useMapGetter } from 'dashboard/composables/store';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 
@@ -11,6 +12,15 @@ const VAR_CONTACT_FIRST_NAME = '{{contact.first_name}}';
 const VAR_CONTACT_NAME = '{{contact.name}}';
 const VAR_CONTACT_PHONE = '{{contact.phone_number}}';
 const VAR_ACCOUNT_NAME = '{{account.name}}';
+
+const store = useStore();
+const teamsList = useMapGetter('teams/getTeams');
+const agentsList = useMapGetter('agents/getAgents');
+
+onMounted(() => {
+  store.dispatch('teams/get');
+  store.dispatch('agents/get');
+});
 
 const props = defineProps({
   node: {
