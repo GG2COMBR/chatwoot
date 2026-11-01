@@ -636,6 +636,13 @@
         "LABEL": "Via:",
         "BUTTON": "Show inboxes"
       },
+      "TEAM_SELECTOR": {
+        "LABEL": "Team:",
+        "BUTTON": "Assign team"
+      },
+      "STATUS_SELECTOR": {
+        "LABEL": "Status:"
+      },
       "EMAIL_OPTIONS": {
         "SUBJECT_LABEL": "Subject :",
         "SUBJECT_PLACEHOLDER": "Enter your email subject here",

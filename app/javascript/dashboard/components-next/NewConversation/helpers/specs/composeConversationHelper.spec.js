@@ -312,6 +312,8 @@ describe('composeConversationHelper', () => {
         bccEmails: 'bcc@test.com',
         attachedFiles: [{ blobSignedId: 'file1' }],
         directUploadsEnabled: true,
+        teamId: 10,
+        status: 'open',
       });
 
       expect(result).toMatchObject({
@@ -322,7 +324,22 @@ describe('composeConversationHelper', () => {
           bcc_emails: 'bcc@test.com',
         },
         files: ['file1'],
+        teamId: 10,
+        status: 'open',
       });
+    });
+
+    it('allows assigning directly to a team without an assignee', () => {
+      const result = helpers.prepareNewMessagePayload({
+        ...baseParams,
+        assigneeId: null,
+        teamId: 5,
+        status: 'open',
+      });
+
+      expect(result.teamId).toBe(5);
+      expect(result.status).toBe('open');
+      expect(result.assigneeId).toBeUndefined();
     });
   });
 
@@ -347,6 +364,23 @@ describe('composeConversationHelper', () => {
         },
         assigneeId: 3,
       });
+    });
+
+    it('prepares whatsapp message payload with teamId and status', () => {
+      const params = {
+        targetInbox: { id: 1, sourceId: 'source1' },
+        selectedContact: { id: 2 },
+        message: 'Hello',
+        templateParams: { param1: 'value1' },
+        currentUser: { id: 3 },
+        teamId: 7,
+        status: 'open',
+      };
+
+      const result = helpers.prepareWhatsAppMessagePayload(params);
+      expect(result.teamId).toBe(7);
+      expect(result.status).toBe('open');
+      expect(result.assigneeId).toBe(3);
     });
   });
 

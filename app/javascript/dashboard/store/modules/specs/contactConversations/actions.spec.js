@@ -340,6 +340,27 @@ describe('createConversationPayload', () => {
 
     expect(payload.has('additional_attributes[mail_subject]')).toBe(false);
   });
+
+  it('includes team_id and status when provided', () => {
+    const options = {
+      params: {
+        inboxId: '1',
+        message: {
+          content: 'Test message content',
+        },
+        sourceId: '12',
+        teamId: '42',
+        status: 'open',
+      },
+      contactId: '23',
+    };
+
+    const payload = createConversationPayload(options);
+
+    expect(payload.get('team_id')).toBe('42');
+    expect(payload.get('status')).toBe('open');
+    expect(payload.has('assignee_id')).toBe(false);
+  });
 });
 
 describe('createWhatsAppConversationPayload', () => {
@@ -361,5 +382,25 @@ describe('createWhatsAppConversationPayload', () => {
     expect(payload.inbox_id).toBe(options.params.inboxId);
     expect(payload.source_id).toBe(options.params.sourceId);
     expect(payload.assignee_id).toBe(options.params.assigneeId);
+  });
+
+  it('creates whatsapp conversation payload with team_id and status', () => {
+    const options = {
+      params: {
+        inboxId: '1',
+        message: {
+          content: 'Test message content',
+        },
+        sourceId: '12',
+        teamId: 15,
+        status: 'open',
+      },
+    };
+
+    const payload = createWhatsAppConversationPayload(options);
+
+    expect(payload.team_id).toBe(15);
+    expect(payload.status).toBe('open');
+    expect(payload.assignee_id).toBeUndefined();
   });
 });
