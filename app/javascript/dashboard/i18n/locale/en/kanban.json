@@ -13,7 +13,12 @@
       "TOTAL_OPPORTUNITIES": "Total Opportunities:",
       "PIPELINE_VALUE": "Pipeline Value:",
       "CLOSED_WON": "Won",
-      "SYNCED_WITH": "Synced with conversation attribute:"
+      "SYNCED_WITH": "Synced with conversation attribute:",
+      "WINDOW_LABEL": "Completed:",
+      "WINDOW_7": "Last 7 days",
+      "WINDOW_14": "Last 14 days",
+      "WINDOW_30": "Last 30 days",
+      "WINDOW_ALL": "All Time"
     },
     "EMPTY_STATE": {
       "TITLE": "No Kanban Board Found",
@@ -30,7 +35,10 @@
     "COLUMN": {
       "TOTAL": "Total:",
       "ADD_OPPORTUNITY": "Add Opportunity",
-      "NEW_OPP_TOOLTIP": "New Opportunity in this stage"
+      "NEW_OPP_TOOLTIP": "New Opportunity in this stage",
+      "COLLAPSE": "Collapse stage",
+      "EXPAND": "Expand stage",
+      "LOAD_MORE": "Load more cards"
     },
     "CARD": {
       "PRIORITY_URGENT": "Urgent",

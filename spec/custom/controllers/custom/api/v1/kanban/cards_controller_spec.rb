@@ -32,6 +32,38 @@ RSpec.describe 'Custom Kanban Cards API', type: :request do
       expect(body['payload'].first['title']).to eq('Negócio 1')
       expect(body['payload'].first['value']).to eq(500.0)
     end
+
+    it 'filters old completed cards based on completed_days window' do
+      Custom::KanbanCard.create!(
+        account: account,
+        custom_kanban_board: board,
+        custom_kanban_stage: stage2,
+        contact: contact,
+        title: 'Negócio Antigo Ganho',
+        value: 1000.0,
+        status: :won,
+        won_lost_at: 30.days.ago
+      )
+
+      # Janela padrão de 14 dias: não inclui o card antigo
+      get "/api/v1/accounts/#{account.id}/kanban_boards/#{board.id}/cards?completed_days=14",
+          headers: admin.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:success)
+      titles = response.parsed_body['payload'].map { |c| c['title'] }
+      expect(titles).to include('Negócio 1')
+      expect(titles).not_to include('Negócio Antigo Ganho')
+
+      # Janela com completed_days=all: inclui o card histórico
+      get "/api/v1/accounts/#{account.id}/kanban_boards/#{board.id}/cards?completed_days=all",
+          headers: admin.create_new_auth_token,
+          as: :json
+
+      expect(response).to have_http_status(:success)
+      titles_all = response.parsed_body['payload'].map { |c| c['title'] }
+      expect(titles_all).to include('Negócio Antigo Ganho')
+    end
   end
 
   describe 'POST /api/v1/accounts/:account_id/kanban_boards/:board_id/cards' do

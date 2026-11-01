@@ -5,10 +5,7 @@ class Custom::Api::V1::Kanban::CardsController < Custom::Api::V1::Kanban::BaseCo
   before_action :fetch_card, only: %i[show update destroy move]
 
   def index
-    cards = @board.custom_kanban_cards.includes(:contact, :conversation, :assignees, :custom_kanban_stage)
-    cards = cards.where(custom_kanban_stage_id: params[:stage_id]) if params[:stage_id].present?
-    cards = cards.where(status: params[:status]) if params[:status].present?
-    cards = cards.where('title ILIKE ?', "%#{params[:query]}%") if params[:query].present?
+    cards = filter_cards(@board.custom_kanban_cards)
 
     render json: {
       payload: cards.map { |c| serialize_card(c) },
@@ -60,6 +57,26 @@ class Custom::Api::V1::Kanban::CardsController < Custom::Api::V1::Kanban::BaseCo
 
   private
 
+  def filter_cards(scope)
+    cards = scope.includes(:contact, :conversation, :assignees, :custom_kanban_stage)
+    cards = cards.where(custom_kanban_stage_id: params[:stage_id]) if params[:stage_id].present?
+    cards = cards.where(status: params[:status]) if params[:status].present?
+    cards = cards.where('title ILIKE ?', "%#{params[:query]}%") if params[:query].present?
+    apply_completed_window(cards)
+  end
+
+  def apply_completed_window(scope)
+    return scope if params[:completed_days] == 'all'
+
+    days = (params[:completed_days].presence || 14).to_i
+    open_status = Custom::KanbanCard.statuses[:open]
+    scope.where(
+      'custom_kanban_cards.status = ? OR custom_kanban_cards.won_lost_at >= ? OR custom_kanban_cards.won_lost_at IS NULL',
+      open_status,
+      days.days.ago
+    )
+  end
+
   def fetch_board
     @board = Custom::KanbanBoard.where(account_id: current_account.id).find(params[:kanban_board_id] || params[:board_id])
   end
@@ -94,7 +111,16 @@ class Custom::Api::V1::Kanban::CardsController < Custom::Api::V1::Kanban::BaseCo
   end
 
   def serialize_card(card, detailed: false)
-    data = {
+    data = base_card_attributes(card)
+    data[:contact] = serialize_contact(card.contact)
+    data[:conversation] = serialize_conversation(card.conversation)
+    data[:assignees] = card.assignees.map { |u| { id: u.id, name: u.name, email: u.email } }
+    data[:notes] = serialize_notes(card) if detailed
+    data
+  end
+
+  def base_card_attributes(card)
+    {
       id: card.id,
       board_id: card.custom_kanban_board_id,
       stage_id: card.custom_kanban_stage_id,
@@ -109,24 +135,25 @@ class Custom::Api::V1::Kanban::CardsController < Custom::Api::V1::Kanban::BaseCo
       due_at: card.due_at,
       scheduled_at: card.scheduled_at,
       stage_entered_at: card.stage_entered_at,
-      won_lost_at: card.won_lost_at,
-      contact: if card.contact
-                 { id: card.contact.id, name: card.contact.name, email: card.contact.email,
-                   phone_number: card.contact.phone_number }
-               end,
-      conversation: if card.conversation
-                      { id: card.conversation.id, display_id: card.conversation.display_id,
-                        status: card.conversation.status }
-                    end,
-      assignees: card.assignees.map { |u| { id: u.id, name: u.name, email: u.email } }
+      won_lost_at: card.won_lost_at
     }
+  end
 
-    if detailed
-      data[:notes] = card.custom_kanban_card_notes.order(created_at: :desc).map do |note|
-        { id: note.id, content: note.content, user_name: note.user&.name, created_at: note.created_at }
-      end
+  def serialize_contact(contact)
+    return unless contact
+
+    { id: contact.id, name: contact.name, email: contact.email, phone_number: contact.phone_number }
+  end
+
+  def serialize_conversation(conversation)
+    return unless conversation
+
+    { id: conversation.id, display_id: conversation.display_id, status: conversation.status }
+  end
+
+  def serialize_notes(card)
+    card.custom_kanban_card_notes.order(created_at: :desc).map do |note|
+      { id: note.id, content: note.content, user_name: note.user&.name, created_at: note.created_at }
     end
-
-    data
   end
 end
