@@ -18,6 +18,16 @@ RSpec.describe Custom::KanbanBoard, type: :model do
     expect(board.name).to eq('Funil de Vendas')
   end
 
+  it 'persists status_custom_attribute_key when provided' do
+    board = described_class.create!(
+      account: account,
+      name: 'Funil Suporte',
+      status_custom_attribute_key: 'etapa_suporte'
+    )
+
+    expect(board.reload.status_custom_attribute_key).to eq('etapa_suporte')
+  end
+
   it 'validates presence of name' do
     board = described_class.new(account: account, name: '')
     expect(board.valid?).to be false

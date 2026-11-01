@@ -18,7 +18,7 @@ class Custom::Kanban::StageService
     now = Time.current.iso8601
     dwell = calculate_dwell_time(now)
 
-    update_conversation!(now, dwell) if @conversation
+    update_conversation! if @conversation
     update_session!(now, dwell) if @session
     broadcast_transition!(now, dwell) if @conversation
 
@@ -37,7 +37,7 @@ class Custom::Kanban::StageService
   def resolve_kanban_stage
     return nil unless @conversation&.account_id && @input_stage_id.present?
 
-    stages = Custom::KanbanStage.where(account_id: @conversation.account_id)
+    stages = Custom::KanbanStage.includes(:custom_kanban_board).where(account_id: @conversation.account_id)
     if @input_stage_id.match?(/\A\d+\z/)
       stages.find_by(id: @input_stage_id)
     else
@@ -49,7 +49,7 @@ class Custom::Kanban::StageService
   end
 
   def calculate_dwell_time(timestamp)
-    prev_entered = last_entered_timestamp
+    prev_entered = session_last_entered
     return nil unless prev_entered
 
     seconds = [0, (Time.iso8601(timestamp) - Time.iso8601(prev_entered)).to_i].max
@@ -60,32 +60,24 @@ class Custom::Kanban::StageService
     nil
   end
 
-  def last_entered_timestamp
-    session_last_entered || conversation_last_entered
-  end
-
   def session_last_entered
     @session&.context&.dig('stage_history')&.last&.dig('entered_at')
   end
 
-  def conversation_last_entered
-    @conversation&.custom_attributes&.dig('kanban_stage_updated_at')
+  def update_conversation!
+    @conversation.custom_kanban_stage_id = @kanban_stage&.id if @kanban_stage
+
+    sync_board_custom_attribute!
+    @conversation.save!
   end
 
-  def update_conversation!(timestamp, dwell)
+  def sync_board_custom_attribute!
+    status_key = @kanban_stage&.custom_kanban_board&.status_custom_attribute_key
+    return if status_key.blank?
+
     attributes = (@conversation.custom_attributes || {}).dup
-    attributes['kanban_stage_id'] = @stage_id
-    attributes['kanban_stage_name'] = @stage_name
-    attributes['kanban_stage_updated_at'] = timestamp
-
-    if dwell
-      attributes['kanban_last_stage_dwell_seconds'] = dwell[:seconds]
-      attributes['kanban_last_stage_dwell_minutes'] = dwell[:minutes]
-    end
-
-    @conversation.custom_kanban_stage_id = @kanban_stage&.id if @kanban_stage
+    attributes[status_key] = @stage_name
     @conversation.custom_attributes = attributes
-    @conversation.save!
   end
 
   def update_session!(timestamp, dwell)

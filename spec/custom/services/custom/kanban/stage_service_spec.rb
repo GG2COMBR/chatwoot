@@ -4,7 +4,13 @@ require 'rails_helper'
 
 RSpec.describe Custom::Kanban::StageService do
   let(:account) { Account.create!(name: 'GG2 Test Account') }
-  let(:board) { Custom::KanbanBoard.create!(account: account, name: 'Funil Comercial') }
+  let(:board) do
+    Custom::KanbanBoard.create!(
+      account: account,
+      name: 'Funil Comercial',
+      status_custom_attribute_key: 'etapa_comercial'
+    )
+  end
   let!(:kanban_stage) do
     Custom::KanbanStage.create!(
       account: account,
@@ -18,7 +24,7 @@ RSpec.describe Custom::Kanban::StageService do
   let(:session) { Custom::FlowSession.create!(account: account, custom_flow: flow, conversation: conversation, status: :active) }
 
   describe '.transition!' do
-    it 'updates conversation custom_kanban_stage_id and custom_attributes simultaneously' do
+    it 'syncs configured status_custom_attribute_key when present on the board' do
       result = described_class.transition!(conversation, session, 'proposta_enviada')
 
       expect(result[:status]).to eq('success')
@@ -27,8 +33,22 @@ RSpec.describe Custom::Kanban::StageService do
 
       conversation.reload
       expect(conversation.custom_kanban_stage_id).to eq(kanban_stage.id)
-      expect(conversation.custom_attributes['kanban_stage_name']).to eq('Proposta Enviada')
-      expect(conversation.custom_attributes['kanban_stage_id']).to eq(kanban_stage.id.to_s)
+      expect(conversation.custom_attributes['etapa_comercial']).to eq('Proposta Enviada')
+      # Confirma que chaves legadas e ad-hoc não existem
+      expect(conversation.custom_attributes['kanban_stage_id']).to be_nil
+      expect(conversation.custom_attributes['kanban_stage_name']).to be_nil
+    end
+
+    it 'does not modify custom_attributes when board has no status_custom_attribute_key' do
+      board.update!(status_custom_attribute_key: nil)
+      conversation.update!(custom_attributes: {})
+
+      result = described_class.transition!(conversation, session, 'proposta_enviada')
+
+      expect(result[:status]).to eq('success')
+      conversation.reload
+      expect(conversation.custom_kanban_stage_id).to eq(kanban_stage.id)
+      expect(conversation.custom_attributes).to be_empty
     end
 
     it 'resolves stage by numeric ID' do
@@ -90,10 +110,6 @@ RSpec.describe Custom::Kanban::StageService do
         expect(first_entry['dwell_time_seconds']).to eq(930)
         expect(first_entry['dwell_time_minutes']).to eq(15.5)
         expect(first_entry['exited_at']).to eq(t1.iso8601)
-
-        attrs = conversation.reload.custom_attributes
-        expect(attrs['kanban_last_stage_dwell_seconds']).to eq(930)
-        expect(attrs['kanban_last_stage_dwell_minutes']).to eq(15.5)
       end
     end
   end

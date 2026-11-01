@@ -105,6 +105,7 @@ class Custom::SeedService
     board = Custom::KanbanBoard.find_or_initialize_by(account: account, name: 'Funil de Vendas & Atendimento')
     board.description = 'Funil comercial oficial com automações integradas'
     board.position = 0
+    board.status_custom_attribute_key = 'etapa_kanban'
     board.save!
 
     stages_data = [
@@ -297,6 +298,16 @@ class Custom::SeedService
       cad.attribute_display_type = 'text'
       cad.attribute_description = 'Motivo de conclusão registrado no encerramento da conversa'
     end
+
+    CustomAttributeDefinition.find_or_create_by!(
+      account: account,
+      attribute_key: 'etapa_kanban',
+      attribute_model: 'conversation_attribute'
+    ) do |cad|
+      cad.attribute_display_name = 'Etapa do Funil Kanban'
+      cad.attribute_display_type = 'text'
+      cad.attribute_description = 'Estágio atual do contato no funil de vendas'
+    end
   end
 
   def setup_purchase_journey_flow(account, stages = [])
@@ -403,7 +414,14 @@ class Custom::SeedService
         data: {
           label: 'Resumo e Forma de Pagamento',
           step_status_value: 'aguardando_pagamento',
-          body: "📦 Resumo do Pedido:\n- 2x Resina Filtek Z350 XT A2 3M\n- Frete Sedex: R$ 15,00\nTotal: R$ 195,00 (ou R$ 185,25 no Pix)\n\nComo deseja pagar?",
+          body: [
+            '📦 Resumo do Pedido:',
+            '- 2x Resina Filtek Z350 XT A2 3M',
+            '- Frete Sedex: R$ 15,00',
+            'Total: R$ 195,00 (ou R$ 185,25 no Pix)',
+            '',
+            'Como deseja pagar?'
+          ].join("\n"),
           buttons: [
             { id: 'pay_pix', title: 'Pix (5% OFF)' },
             { id: 'pay_boleto', title: 'Boleto Bancário' },
@@ -429,7 +447,15 @@ class Custom::SeedService
         data: {
           label: 'Entrega do Pix Copia-e-Cola',
           step_status_value: 'pix_enviado',
-          text: "🎉 Pedido \#{{context.order_id}} gerado com sucesso no valor de R$ \#{{context.amount}}!\n\nCopie o código Pix abaixo para pagamento:\n\n\#{{context.pix_code}}\n\nApós o pagamento, o envio é imediato via Sedex!"
+          text: [
+            "🎉 Pedido \#{{context.order_id}} gerado com sucesso no valor de R$ \#{{context.amount}}!",
+            '',
+            'Copie o código Pix abaixo para pagamento:',
+            '',
+            "\#{{context.pix_code}}",
+            '',
+            'Após o pagamento, o envio é imediato via Sedex!'
+          ].join("\n")
         }
       },
       {
@@ -440,7 +466,7 @@ class Custom::SeedService
           label: 'Etiquetar Cliente',
           target: 'conversation',
           action: 'add',
-          labels: ['comprou-pix', 'cliente-ecommerce']
+          labels: %w[comprou-pix cliente-ecommerce]
         }
       },
       {
