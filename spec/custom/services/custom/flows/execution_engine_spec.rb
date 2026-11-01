@@ -278,5 +278,208 @@ RSpec.describe Custom::Flows::ExecutionEngine do
       last_message = conversation.messages.last
       expect(last_message.content).to eq('Olá, Gihovani! Bem-vindo Gihovani Demetrio!')
     end
+
+    it 'interpolates {{context.*}} variables in messages' do
+      flow.update!(
+        nodes: [
+          {
+            id: 'node_pix_msg',
+            type: 'message',
+            data: { text: 'Pedido #{{context.order_id}} gerado! Pix: {{context.pix_code}}' }
+          }
+        ],
+        edges: []
+      )
+      pix_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: flow,
+        conversation: conversation,
+        status: :active,
+        context: {
+          'order_id' => 'PED-9988',
+          'pix_code' => '00020126580014br.gov.bcb.pix...'
+        }
+      )
+
+      described_class.process!(pix_session)
+
+      last_message = conversation.messages.last
+      expect(last_message.content).to eq('Pedido #PED-9988 gerado! Pix: 00020126580014br.gov.bcb.pix...')
+    end
+
+    it 'saves closure reason into custom_attributes when finish node is executed' do
+      finish_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Finish Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_finish',
+            type: 'finish',
+            data: {
+              closure_attribute_key: 'motivo_encerramento',
+              closure_reason: 'Venda Concluída via Pix',
+              farewell_message: 'Obrigado pela compra!'
+            }
+          }
+        ],
+        edges: []
+      )
+      finish_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: finish_flow,
+        conversation: conversation,
+        status: :active
+      )
+
+      described_class.process!(finish_session)
+
+      expect(conversation.reload.status).to eq('resolved')
+      expect(conversation.custom_attributes['motivo_encerramento']).to eq('Venda Concluída via Pix')
+      expect(finish_session.reload.status).to eq('completed')
+    end
+
+    it 'tracks step status and calculates dwell time across multiple steps' do
+      status_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Status Flow',
+        status: :published,
+        trigger_config: { 'status_custom_attribute_key' => 'etapa_fluxo' },
+        nodes: [
+          { id: 'step_1', type: 'message', data: { text: 'Passo 1', step_status_value: 'identificacao' } },
+          { id: 'step_2', type: 'message', data: { text: 'Passo 2', step_status_value: 'cotacao' } }
+        ],
+        edges: [
+          { source: 'step_1', target: 'step_2' }
+        ]
+      )
+      status_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: status_flow,
+        conversation: conversation,
+        status: :active
+      )
+
+      # Executa step 1
+      described_class.process!(status_session)
+      expect(conversation.reload.custom_attributes['etapa_fluxo']).to eq('identificacao')
+      expect(status_session.reload.context['step_history'].size).to eq(1)
+
+      # Avança para step 2
+      described_class.process!(status_session)
+      expect(conversation.reload.custom_attributes['etapa_fluxo']).to eq('cotacao')
+      history = status_session.reload.context['step_history']
+      expect(history.size).to eq(2)
+      expect(history.first['dwell_time_seconds']).to be >= 0
+    end
+
+    it 'handles try_catch node retries and routes to catch when max retries exceeded' do
+      tc_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Try Catch Flow',
+        status: :published,
+        nodes: [
+          { id: 'node_tc', type: 'try_catch', data: { max_retries: 2, retry_message: 'Tentando novamente...' } },
+          { id: 'node_try', type: 'message', data: { text: 'Branch Try' } },
+          { id: 'node_catch', type: 'message', data: { text: 'Branch Catch' } }
+        ],
+        edges: [
+          { source: 'node_tc', target: 'node_try', condition: { status: 'try' } },
+          { source: 'node_tc', target: 'node_catch', condition: { status: 'catch' } }
+        ]
+      )
+      tc_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: tc_flow,
+        conversation: conversation,
+        status: :active,
+        current_node_id: 'node_tc',
+        context: { 'retry_count_node_tc' => 1 } # Já na tentativa 1
+      )
+
+      # Segunda tentativa (ainda < max_retries 2) -> segue pela branch try
+      described_class.process!(tc_session)
+      expect(tc_session.reload.current_node_id).to eq('node_try')
+      expect(tc_session.context['retry_count_node_tc']).to eq(2)
+
+      # Reseta para node_tc agora com contagem 2 (atingiu o limite)
+      tc_session.update!(current_node_id: 'node_tc')
+      described_class.process!(tc_session)
+      expect(tc_session.reload.current_node_id).to eq('node_catch')
+      expect(tc_session.context['retry_count_node_tc']).to eq(0) # resetado
+    end
+
+    it 'manages labels by adding and removing labels on conversation and contact' do
+      labels_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Labels Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_add_labels',
+            type: 'manage_labels',
+            data: { target: 'conversation', action: 'add', labels: ['vip', 'lead-qualificado'] }
+          }
+        ],
+        edges: []
+      )
+      labels_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: labels_flow,
+        conversation: conversation,
+        status: :active
+      )
+
+      described_class.process!(labels_session)
+
+      expect(conversation.reload.labels.pluck(:name)).to include('vip', 'lead-qualificado')
+    end
+
+    it 'evaluates condition_router node and routes to true or false branches' do
+      cond_flow = Custom::Flow.create!(
+        account: account,
+        name: 'Cond Flow',
+        status: :published,
+        nodes: [
+          {
+            id: 'node_cond',
+            type: 'condition_router',
+            data: { variable: 'customer_found', operator: 'equals', expected_value: 'true' }
+          },
+          { id: 'node_true', type: 'message', data: { text: 'Cliente Encontrado' } },
+          { id: 'node_false', type: 'message', data: { text: 'Novo Cadastro' } }
+        ],
+        edges: [
+          { source: 'node_cond', target: 'node_true', condition: { status: 'true' } },
+          { source: 'node_cond', target: 'node_false', condition: { status: 'false' } }
+        ]
+      )
+
+      cond_session = Custom::FlowSession.create!(
+        account: account,
+        custom_flow: cond_flow,
+        conversation: conversation,
+        status: :active,
+        current_node_id: 'node_cond',
+        context: { 'customer_found' => 'true' }
+      )
+
+      described_class.process!(cond_session)
+      expect(cond_session.reload.current_node_id).to eq('node_true')
+    end
+
+    it 'triggers global escape and creates private note when client types "atendente"' do
+      session.update!(current_node_id: 'node_1', context: { 'extracted_data' => { 'cpf' => '12345678900', 'name' => 'Carlos' } })
+
+      expect do
+        described_class.process!(session, content: 'Quero falar com um atendente agora')
+      end.to change(conversation.messages, :count)
+
+      expect(session.reload.status).to eq('handoff')
+      private_note = conversation.messages.where(private: true).last
+      expect(private_note).to be_present
+      expect(private_note.content).to include('Resumo da URA')
+      expect(private_note.content).to include('12345678900')
+    end
   end
 end

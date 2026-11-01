@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useStore, useMapGetter } from 'dashboard/composables/store';
+import CustomFlowsAPI from 'dashboard/api/customFlows';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 
@@ -13,13 +14,62 @@ const VAR_CONTACT_NAME = '{{contact.name}}';
 const VAR_CONTACT_PHONE = '{{contact.phone_number}}';
 const VAR_ACCOUNT_NAME = '{{account.name}}';
 
+const DAYS_OF_WEEK = [
+  { key: 'monday', label: 'Seg' },
+  { key: 'tuesday', label: 'Ter' },
+  { key: 'wednesday', label: 'Qua' },
+  { key: 'thursday', label: 'Qui' },
+  { key: 'friday', label: 'Sex' },
+  { key: 'saturday', label: 'Sáb' },
+  { key: 'sunday', label: 'Dom' },
+];
+
 const store = useStore();
 const teamsList = useMapGetter('teams/getTeams');
 const agentsList = useMapGetter('agents/getAgents');
+const labelsList = useMapGetter('labels/getLabels');
+const conversationAttributes = useMapGetter('attributes/getConversationAttributes');
+
+const kanbanFunnels = ref([]);
+const isLoadingKanban = ref(false);
+const isCreatingClosureAttr = ref(false);
+
+const fetchKanbanOptions = async () => {
+  isLoadingKanban.value = true;
+  try {
+    const res = await CustomFlowsAPI.getKanbanOptions();
+    kanbanFunnels.value = res.data?.payload?.funnels || [];
+  } catch (e) {
+    kanbanFunnels.value = [];
+  } finally {
+    isLoadingKanban.value = false;
+  }
+};
+
+const createDefaultClosureAttribute = async () => {
+  isCreatingClosureAttr.value = true;
+  try {
+    await store.dispatch('attributes/create', {
+      attribute_display_name: 'Motivo de Encerramento',
+      attribute_key: 'motivo_encerramento',
+      attribute_model: 'conversation_attribute',
+      attribute_display_type: 'text',
+      attribute_description: 'Motivo de conclusão registrado no encerramento da conversa',
+    });
+    updateData('closure_attribute_key', 'motivo_encerramento');
+  } catch (err) {
+    // ignore
+  } finally {
+    isCreatingClosureAttr.value = false;
+  }
+};
 
 onMounted(() => {
   store.dispatch('teams/get');
   store.dispatch('agents/get');
+  store.dispatch('labels/get');
+  store.dispatch('attributes/get');
+  fetchKanbanOptions();
 });
 
 const props = defineProps({
@@ -41,6 +91,109 @@ const updateData = (key, value) => {
   if (!props.node) return;
   const updatedData = { ...nodeData.value, [key]: value };
   emit('update', { ...props.node, data: updatedData });
+};
+
+// --- Gestão de Equipe e Atendentes ---
+const handleTeamSelect = e => {
+  const teamId = e.target.value ? parseInt(e.target.value, 10) : null;
+  const team = teamsList.value?.find(t => t.id === teamId);
+  const updatedData = {
+    ...nodeData.value,
+    team_id: teamId,
+    team_name: team?.name || '',
+  };
+  emit('update', { ...props.node, data: updatedData });
+};
+
+const handleAgentSelect = e => {
+  const agentId = e.target.value ? parseInt(e.target.value, 10) : null;
+  const agent = agentsList.value?.find(a => a.id === agentId);
+  const updatedData = {
+    ...nodeData.value,
+    assigned_agent_id: agentId,
+    agent_name: agent?.name || '',
+  };
+  emit('update', { ...props.node, data: updatedData });
+};
+
+// --- Gestão de Horário de Atendimento ---
+const isDayActive = dayKey => {
+  const days = nodeData.value.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+  return days.includes(dayKey);
+};
+
+const toggleWorkingDay = dayKey => {
+  const currentDays = [...(nodeData.value.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])];
+  const idx = currentDays.indexOf(dayKey);
+  if (idx > -1) {
+    currentDays.splice(idx, 1);
+  } else {
+    currentDays.push(dayKey);
+  }
+  updateData('working_days', currentDays);
+};
+
+// --- Gestão do Kanban Encadeado ---
+const selectedFunnelId = computed(() => {
+  if (nodeData.value.funnel_id) return nodeData.value.funnel_id;
+  if (nodeData.value.stage_id && kanbanFunnels.value.length) {
+    const found = kanbanFunnels.value.find(f => (f.stages || []).some(s => s.id === nodeData.value.stage_id));
+    if (found) return found.id;
+  }
+  return kanbanFunnels.value[0]?.id || '';
+});
+
+const selectedFunnel = computed(() => {
+  return kanbanFunnels.value.find(f => String(f.id) === String(selectedFunnelId.value));
+});
+
+const handleFunnelChange = funnelId => {
+  const funnel = kanbanFunnels.value.find(f => String(f.id) === String(funnelId));
+  const updatedData = {
+    ...nodeData.value,
+    funnel_id: funnelId,
+    funnel_name: funnel?.name || '',
+    stage_id: '',
+    stage_name: '',
+  };
+  emit('update', { ...props.node, data: updatedData });
+};
+
+const handleStageSelect = stageId => {
+  const stage = selectedFunnel.value?.stages?.find(s => String(s.id) === String(stageId));
+  const updatedData = {
+    ...nodeData.value,
+    stage_id: stageId,
+    stage_name: stage?.name || stageId,
+    funnel_id: selectedFunnel.value?.id,
+    funnel_name: selectedFunnel.value?.name,
+  };
+  emit('update', { ...props.node, data: updatedData });
+};
+
+// --- Gestão de Etiquetas ---
+const isLabelSelected = labelTitle => {
+  return (nodeData.value.labels || []).includes(labelTitle);
+};
+
+const toggleLabel = labelTitle => {
+  const current = [...(nodeData.value.labels || [])];
+  const idx = current.indexOf(labelTitle);
+  if (idx > -1) {
+    current.splice(idx, 1);
+  } else {
+    current.push(labelTitle);
+  }
+  updateData('labels', current);
+};
+
+// --- Gestão de Slot Filling em IA ---
+const updateRequiredFields = val => {
+  const fields = val
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+  updateData('required_fields', fields);
 };
 
 const addButton = () => {
@@ -187,6 +340,23 @@ const onProviderChange = provider => {
           class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
           @input="updateData('label', $event.target.value)"
         />
+      </div>
+
+      <!-- Status da Etapa / Conversa -->
+      <div v-if="node.type !== 'start'">
+        <label class="block text-xs font-medium text-n-slate-11 mb-1">
+          Status da Conversa nesta Etapa
+        </label>
+        <input
+          :value="nodeData.step_status_value || nodeData.status_value || ''"
+          type="text"
+          placeholder="Ex: identificacao, cotacao_frete, pix_gerado"
+          class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand font-mono"
+          @input="updateData('step_status_value', $event.target.value)"
+        />
+        <p class="text-[11px] text-n-slate-10 mt-1">
+          Atribui este status ao campo personalizado da conversa e calcula o tempo de permanência nesta etapa.
+        </p>
       </div>
 
       <!-- Configuração por Tipo: Mensagem -->
@@ -553,6 +723,58 @@ const onProviderChange = provider => {
             @input="updateData('fallback_message', $event.target.value)"
           />
         </div>
+
+        <!-- Coleta de Dados Estruturados (Slot Filling Multi-turn) -->
+        <div class="p-3 rounded-xl border border-purple-500/30 bg-purple-500/5 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-semibold text-n-slate-12 flex items-center gap-1.5">
+                <Icon icon="i-lucide-brain" class="size-3.5 text-purple-600 dark:text-purple-400" />
+                Coleta Inteligente (Slot Filling)
+              </span>
+              <p class="text-[11px] text-n-slate-10 mt-0.5">
+                Mantém o cliente nesta etapa até coletar os campos necessários via IA.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                :checked="Boolean(nodeData.extract_slots)"
+                class="sr-only peer"
+                @change="updateData('extract_slots', $event.target.checked)"
+              />
+              <div class="w-8 h-4 bg-n-slate-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+
+          <div v-if="nodeData.extract_slots" class="flex flex-col gap-3 pt-2 border-t border-purple-500/20">
+            <div>
+              <label class="block text-[11px] font-medium text-n-slate-11 mb-1">
+                Campos Obrigatórios (separados por vírgula) *
+              </label>
+              <input
+                :value="(nodeData.required_fields || []).join(', ')"
+                type="text"
+                placeholder="Ex: cpf, cep"
+                class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-n-strong bg-n-solid-1 text-n-slate-12 outline-none focus:border-n-brand font-mono"
+                @input="updateRequiredFields($event.target.value)"
+              />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-medium text-n-slate-11 mb-1">
+                Mensagem ao Concluir Coleta com Sucesso
+              </label>
+              <input
+                :value="nodeData.completed_message || ''"
+                type="text"
+                placeholder="Ex: Perfeito! Localizamos seus dados. Consultando opções..."
+                class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-n-strong bg-n-solid-1 text-n-slate-12 outline-none focus:border-n-brand"
+                @input="updateData('completed_message', $event.target.value)"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Configuração por Tipo: Transferir para Atendente -->
@@ -757,45 +979,253 @@ const onProviderChange = provider => {
 
       <!-- Configuração por Tipo: Mover Estágio no Kanban -->
       <div v-if="node.type === 'kanban_stage_change'" class="flex flex-col gap-3">
+        <!-- Empty State se não houver funis cadastrados -->
+        <div
+          v-if="!isLoadingKanban && kanbanFunnels.length === 0"
+          class="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 flex flex-col gap-2"
+        >
+          <div class="flex items-center gap-2 font-semibold text-xs">
+            <Icon icon="i-lucide-alert-triangle" class="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>Nenhum Funil Encontrado</span>
+          </div>
+          <p class="text-[11px] leading-relaxed">
+            Para mover um contato no Kanban, é necessário criar um Funil e seus respectivos Estágios primeiro.
+          </p>
+          <div class="pt-1">
+            <span class="inline-block text-[11px] font-medium text-amber-700 dark:text-amber-300 underline">
+              👉 Crie um funil no menu Kanban antes de selecionar este bloco.
+            </span>
+          </div>
+        </div>
+
+        <!-- Seletor Encadeado de Funil e Estágio -->
+        <div v-else class="flex flex-col gap-3">
+          <div>
+            <label class="block text-xs font-medium text-n-slate-11 mb-1">
+              Funil / Pipeline *
+            </label>
+            <select
+              :value="selectedFunnelId"
+              class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+              @change="handleFunnelChange($event.target.value)"
+            >
+              <option value="">-- Selecione o Funil --</option>
+              <option
+                v-for="funnel in kanbanFunnels"
+                :key="funnel.id"
+                :value="funnel.id"
+              >
+                📊 {{ funnel.name }} ({{ funnel.stages?.length || 0 }} etapas)
+              </option>
+            </select>
+          </div>
+
+          <div v-if="selectedFunnel">
+            <div
+              v-if="!selectedFunnel.stages || selectedFunnel.stages.length === 0"
+              class="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300"
+            >
+              ⚠️ Este funil não possui etapas cadastradas. Crie um novo step no kanban para poder selecioná-lo aqui.
+            </div>
+
+            <div v-else>
+              <label class="block text-xs font-medium text-n-slate-11 mb-1">
+                Estágio de Destino (Step) *
+              </label>
+              <select
+                :value="nodeData.stage_id || ''"
+                class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+                @change="handleStageSelect($event.target.value)"
+              >
+                <option value="">-- Selecione a Etapa do Funil --</option>
+                <option
+                  v-for="stage in selectedFunnel.stages"
+                  :key="stage.id"
+                  :value="stage.id"
+                >
+                  🏷️ {{ stage.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuração por Tipo: Gerenciar Etiquetas -->
+      <div v-if="node.type === 'manage_labels'" class="flex flex-col gap-3">
         <div>
           <label class="block text-xs font-medium text-n-slate-11 mb-1">
-            ID do Estágio (slug) *
+            Alvo da Ação *
+          </label>
+          <select
+            :value="nodeData.target || 'conversation'"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @change="updateData('target', $event.target.value)"
+          >
+            <option value="conversation">Na Conversa</option>
+            <option value="contact">No Contato</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Ação *
+          </label>
+          <select
+            :value="nodeData.action || 'add'"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @change="updateData('action', $event.target.value)"
+          >
+            <option value="add">Adicionar Etiqueta(s)</option>
+            <option value="remove">Remover Etiqueta(s)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Selecionar Etiquetas da Conta
+          </label>
+          <div class="flex items-center gap-1.5 flex-wrap max-h-40 overflow-y-auto p-2.5 rounded-lg border border-n-strong bg-n-solid-2">
+            <span v-if="!labelsList || labelsList.length === 0" class="text-xs text-n-slate-10">
+              Nenhuma etiqueta cadastrada na conta.
+            </span>
+            <button
+              v-for="label in labelsList || []"
+              :key="label.id"
+              type="button"
+              class="px-2.5 py-1 text-xs rounded-lg border transition-all flex items-center gap-1.5"
+              :class="isLabelSelected(label.title) ? 'bg-n-brand text-white border-n-brand shadow-sm' : 'bg-n-alpha-2 text-n-slate-11 border-n-strong hover:bg-n-alpha-3'"
+              @click="toggleLabel(label.title)"
+            >
+              <span class="size-2 rounded-full" :style="{ backgroundColor: label.color || '#3b82f6' }"></span>
+              {{ label.title }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuração por Tipo: Decisão Condicional (Se/Senão) -->
+      <div v-if="node.type === 'condition_router'" class="flex flex-col gap-3">
+        <div class="p-3 rounded-xl border border-sky-500/30 bg-sky-500/5 text-xs text-sky-800 dark:text-sky-300 flex flex-col gap-1">
+          <span class="font-semibold flex items-center gap-1.5">
+            <Icon icon="i-lucide-git-branch" class="size-4 text-sky-600 dark:text-sky-400" />
+            Decisão Condicional (Se / Senão)
+          </span>
+          <p class="text-[11px] leading-relaxed">
+            Se a condição for atendida, o fluxo avança pela saída <strong>✓ Sim (Verdadeiro)</strong>. Caso contrário, avança pela saída <strong>✗ Não (Falso)</strong>.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Variável de Contexto *
           </label>
           <input
-            :value="nodeData.stage_id || ''"
+            :value="nodeData.variable || ''"
             type="text"
-            placeholder="Ex: lead_qualificado"
-            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
-            @input="updateData('stage_id', $event.target.value)"
+            placeholder="Ex: customer_found ou context.amount"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand font-mono"
+            @input="updateData('variable', $event.target.value)"
           />
         </div>
 
         <div>
           <label class="block text-xs font-medium text-n-slate-11 mb-1">
-            Nome do Estágio Visual *
+            Operador *
+          </label>
+          <select
+            :value="nodeData.operator || 'equals'"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @change="updateData('operator', $event.target.value)"
+          >
+            <option value="equals">Igual a (==)</option>
+            <option value="not_equals">Diferente de (!=)</option>
+            <option value="present">Está Preenchido (Presente)</option>
+            <option value="blank">Está Vazio (Ausente)</option>
+            <option value="contains">Contém Texto</option>
+          </select>
+        </div>
+
+        <div v-if="nodeData.operator !== 'present' && nodeData.operator !== 'blank'">
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Valor Esperado *
           </label>
           <input
-            :value="nodeData.stage_name || ''"
+            :value="nodeData.expected_value || ''"
             type="text"
-            placeholder="Ex: Lead Qualificado"
-            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
-            @input="updateData('stage_name', $event.target.value)"
+            placeholder="Ex: true, ouro, 100"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand font-mono"
+            @input="updateData('expected_value', $event.target.value)"
           />
         </div>
       </div>
 
-      <!-- Configuração por Tipo: Consulta Externa / ERP -->
-      <div v-if="node.type === 'async_api'" class="flex flex-col gap-3">
+      <!-- Configuração por Tipo: Tratamento de Falhas (Try/Catch) -->
+      <div v-if="node.type === 'try_catch'" class="flex flex-col gap-3">
+        <div class="p-3 rounded-xl border border-orange-500/30 bg-orange-500/5 text-xs text-orange-800 dark:text-orange-300 flex flex-col gap-1">
+          <span class="font-semibold flex items-center gap-1.5">
+            <Icon icon="i-lucide-shield-alert" class="size-4 text-orange-600 dark:text-orange-400" />
+            Tratamento de Falhas & Retentativas
+          </span>
+          <p class="text-[11px] leading-relaxed">
+            Encaminha pela saída <strong>✓ Executar (Try)</strong> até o limite de tentativas. Se o limite for excedido, avança pela saída <strong>✗ Falha / Limite (Catch)</strong>.
+          </p>
+        </div>
+
         <div>
           <label class="block text-xs font-medium text-n-slate-11 mb-1">
-            Operação de Consulta
+            Número Máximo de Tentativas *
+          </label>
+          <input
+            :value="nodeData.max_retries || 3"
+            type="number"
+            min="1"
+            max="10"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand font-mono"
+            @input="updateData('max_retries', parseInt($event.target.value, 10))"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Mensagem de Retentativa para o Cliente
+          </label>
+          <textarea
+            :value="nodeData.retry_message || ''"
+            rows="2"
+            placeholder="Ex: Tivemos uma oscilação temporária de conexão. Tentando novamente..."
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
+            @input="updateData('retry_message', $event.target.value)"
+          />
+        </div>
+      </div>
+
+      <!-- Configuração por Tipo: Consulta Externa / Processamento Assíncrono -->
+      <div v-if="node.type === 'async_api'" class="flex flex-col gap-3">
+        <div class="p-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 text-xs text-cyan-800 dark:text-cyan-300 flex flex-col gap-1">
+          <span class="font-semibold flex items-center gap-1.5">
+            <span class="size-2 rounded-full bg-cyan-500 animate-pulse"></span>
+            Processamento em Background (Fila :flows_processing)
+          </span>
+          <p class="text-[11px] leading-relaxed">
+            Executa em background sem travar os atendentes. Possui saídas dedicadas para <strong>✓ Sucesso</strong> e <strong>✗ Erro</strong>.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Operação do Sistema / ERP / Magento *
           </label>
           <select
             :value="nodeData.operation || 'consultar_cpf'"
-            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
             @change="updateData('operation', $event.target.value)"
           >
-            <option value="consultar_cpf">Consulta de CPF / Cadastro</option>
+            <option value="consultar_cpf">Consulta de CPF / Cadastro Simples</option>
+            <option value="magento_customer_lookup">Magento: Consultar Cliente & Limite</option>
+            <option value="magento_search_products">Magento: Catálogo de Produtos</option>
+            <option value="magento_create_quote">Magento: Criar Cotação & Frete</option>
+            <option value="magento_place_order">Magento: Fechar Pedido & Gerar Pix</option>
             <option value="pedidos_recentes">Histórico de Pedidos</option>
             <option value="saldo_revendedora">Saldo e Limite de Crédito</option>
             <option value="rastreio_envio">Rastreamento de Encomenda</option>
@@ -809,14 +1239,77 @@ const onProviderChange = provider => {
           <input
             :value="nodeData.wait_message || '⏳ Aguarde um instante enquanto consultamos nossos sistemas...'"
             type="text"
-            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
             @input="updateData('wait_message', $event.target.value)"
           />
         </div>
       </div>
 
-      <!-- Configuração por Tipo: Finalização CSAT -->
+      <!-- Configuração por Tipo: Finalização com Motivo -->
       <div v-if="node.type === 'finish'" class="flex flex-col gap-3">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-medium text-n-slate-11">
+              Campo de Motivo de Encerramento (Custom Attribute)
+            </label>
+            <button
+              v-if="!conversationAttributes || !conversationAttributes.some(a => a.attributeKey === 'motivo_encerramento')"
+              type="button"
+              class="text-[11px] text-n-brand hover:underline font-medium"
+              :disabled="isCreatingClosureAttr"
+              @click="createDefaultClosureAttribute"
+            >
+              + Criar "motivo_encerramento"
+            </button>
+          </div>
+
+          <select
+            v-if="conversationAttributes && conversationAttributes.length > 0"
+            :value="nodeData.closure_attribute_key || 'motivo_encerramento'"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @change="updateData('closure_attribute_key', $event.target.value)"
+          >
+            <option value="">-- Não gravar motivo em atributo --</option>
+            <option
+              v-for="attr in conversationAttributes"
+              :key="attr.id"
+              :value="attr.attributeKey"
+            >
+              🏷️ {{ attr.attributeDisplayName }} ({{ attr.attributeKey }})
+            </option>
+          </select>
+
+          <div
+            v-else
+            class="p-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2"
+          >
+            <span class="text-[11px]">Nenhum atributo de conversa encontrado.</span>
+            <Button
+              label="Criar Atributo"
+              size="xs"
+              variant="faded"
+              :loading="isCreatingClosureAttr"
+              @click="createDefaultClosureAttribute"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-n-slate-11 mb-1">
+            Motivo do Encerramento *
+          </label>
+          <input
+            :value="nodeData.closure_reason || ''"
+            type="text"
+            placeholder="Ex: Venda Concluída, Dúvida Sanada, Sem Interesse"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @input="updateData('closure_reason', $event.target.value)"
+          />
+          <p class="text-[11px] text-n-slate-10 mt-1">
+            Gravado no atributo de conversa no momento do encerramento para relatórios e automações.
+          </p>
+        </div>
+
         <div>
           <label class="block text-xs font-medium text-n-slate-11 mb-1">
             Mensagem de Despedida
@@ -825,7 +1318,7 @@ const onProviderChange = provider => {
             :value="nodeData.farewell_message || ''"
             rows="3"
             placeholder="Ex: Agradecemos seu contato! Tenha um ótimo dia."
-            class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand resize-none"
             @input="updateData('farewell_message', $event.target.value)"
           />
         </div>

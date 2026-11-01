@@ -36,7 +36,10 @@ const interpolate = text => {
     .replaceAll('{{contact.first_name}}', 'Gihovani')
     .replaceAll('{{contact.name}}', 'Gihovani Demetrio')
     .replaceAll('{{contact.phone_number}}', '+55 (48) 99999-9999')
-    .replaceAll('{{account.name}}', 'Dental Speed');
+    .replaceAll('{{account.name}}', 'Dental Speed')
+    .replaceAll('{{context.order_id}}', 'PED-9821')
+    .replaceAll('{{context.amount}}', '185,25')
+    .replaceAll('{{context.pix_code}}', '00020126580014br.gov.bcb.pix0136gg2-pix-c598-498c-848e-payment5204000053039865406185.255802BR5913GG2 DENTAL6009SAO PAULO62070503***6304E8A2');
 };
 
 const startNode = computed(() => {
@@ -154,18 +157,42 @@ const processNode = node => {
         advanceToNext(node.id);
         break;
       }
+      case 'manage_labels': {
+        const act = node.data?.action === 'remove' ? 'Removidas' : 'Adicionadas';
+        const tgt = node.data?.target === 'contact' ? 'Contato' : 'Conversa';
+        const lbls = (node.data?.labels || []).join(', ') || 'Nenhuma';
+        addSystemNotice(`🏷️ Etiquetas ${act} no ${tgt}: [${lbls}]`);
+        advanceToNext(node.id);
+        break;
+      }
+      case 'condition_router': {
+        addSystemNotice(`🔀 Decisão Condicional: [${node.data?.variable || 'var'} == '${node.data?.expected_value || ''}'] -> Rota Sim (True)`);
+        advanceToNext(node.id, 'true');
+        break;
+      }
+      case 'try_catch': {
+        addSystemNotice(`🛡️ Try/Catch: Tentativa 1 de ${node.data?.max_retries || 3} executando saída (Try)`);
+        advanceToNext(node.id, 'try');
+        break;
+      }
       case 'async_api': {
         addBotMessage(node.data?.wait_message || '⏳ Aguarde um instante enquanto consultamos nossos sistemas...');
         setTimeout(() => {
-          addBotMessage('✅ Dados localizados com sucesso no sistema!');
-          advanceToNext(node.id);
+          addBotMessage('✅ Processamento assíncrono concluído com sucesso!');
+          advanceToNext(node.id, 'success');
         }, 800);
         break;
       }
       case 'finish': {
-        addBotMessage(node.data?.farewell_message || 'Atendimento encerrado. Obrigado!');
+        if (node.data?.farewell_message) {
+          addBotMessage(interpolate(node.data.farewell_message));
+        }
+        if (node.data?.closure_reason) {
+          addSystemNotice(`🏁 Conversa encerrada com motivo gravado: "${node.data.closure_reason}"`);
+        } else {
+          addSystemNotice('🏁 Sessão finalizada');
+        }
         addSystemNotice('⭐ Pesquisa de Satisfação (CSAT) enviada ao cliente');
-        addSystemNotice('🏁 Sessão finalizada');
         isSimulating.value = false;
         break;
       }
@@ -177,15 +204,27 @@ const processNode = node => {
   }, 400);
 };
 
-const advanceToNext = fromNodeId => {
-  const nextNodes = getNextNodes(fromNodeId);
-  if (nextNodes.length > 0) {
-    const nextNode = nextNodes[0];
-    currentNodeId.value = nextNode.id;
-    processNode(nextNode);
-  } else {
-    isSimulating.value = false;
+const advanceToNext = (fromNodeId, statusHandle) => {
+  const outgoingEdges = props.edges.filter(e => e.source === fromNodeId);
+  let targetEdge = null;
+  if (statusHandle) {
+    targetEdge = outgoingEdges.find(
+      e => e.sourceHandle === statusHandle || e.condition?.status === statusHandle
+    );
   }
+  if (!targetEdge) {
+    targetEdge = outgoingEdges[0];
+  }
+
+  if (targetEdge) {
+    const nextNode = props.nodes.find(n => n.id === targetEdge.target);
+    if (nextNode) {
+      currentNodeId.value = nextNode.id;
+      processNode(nextNode);
+      return;
+    }
+  }
+  isSimulating.value = false;
 };
 
 const addBotMessage = text => {

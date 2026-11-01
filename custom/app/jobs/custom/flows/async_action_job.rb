@@ -12,9 +12,12 @@ class Custom::Flows::AsyncActionJob < ApplicationJob
       session.update_context(action_result: result, last_action_node: node_id)
 
       # Resume flow execution on the next node with action result
+      action_status = result[:status] || 'success'
       Custom::Flows::ExecutionEngine.process!(
         session,
-        content: result[:status] || 'success',
+        content: action_status,
+        status: action_status,
+        button_id: action_status,
         action_result: result
       )
     end

@@ -13,6 +13,10 @@ class CustomFlowsAPI extends ApiClient {
   duplicate(flowId) {
     return axios.post(`${this.url}/${flowId}/duplicate`);
   }
+
+  getKanbanOptions() {
+    return axios.get(`${this.url}/kanban_options`);
+  }
 }
 
 export default new CustomFlowsAPI();

@@ -62,6 +62,34 @@ class Custom::Api::V1::FlowsController < Api::V1::Accounts::BaseController
     render json: { payload: serialize_flow_detail(cloned_flow) }, status: :created
   end
 
+  def kanban_options
+    boards = []
+
+    if defined?(KanbanBoard) && ActiveRecord::Base.connection.table_exists?(:kanban_boards)
+      account_boards = KanbanBoard.where(account_id: Current.account.id, active: true).order(:position, :name)
+      boards = account_boards.map do |board|
+        stages = if defined?(KanbanStage) && board.respond_to?(:kanban_stages)
+                   board.kanban_stages.where(active: true).order(:position, :name).map do |stg|
+                     { id: stg.id.to_s, name: stg.name, color: stg.try(:color) || '#3b82f6' }
+                   end
+                 else
+                   []
+                 end
+
+        {
+          id: board.id.to_s,
+          name: board.name,
+          stages: stages
+        }
+      end
+    end
+
+    render json: { payload: boards }
+  rescue StandardError => e
+    Rails.logger.warn("[Custom::Api::V1::FlowsController] kanban_options error: #{e.message}")
+    render json: { payload: [] }
+  end
+
   private
 
   def current_account_flows
@@ -124,6 +152,7 @@ class Custom::Api::V1::FlowsController < Api::V1::Accounts::BaseController
       status: flow.status,
       trigger_type: flow.trigger_type,
       trigger_config: flow.trigger_config,
+      status_custom_attribute_key: flow.trigger_config&.dig('status_custom_attribute_key'),
       nodes: flow.nodes,
       edges: flow.edges,
       created_at: flow.created_at,
