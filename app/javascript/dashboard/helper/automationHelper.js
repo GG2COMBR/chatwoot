@@ -107,6 +107,7 @@ const ACTION_ICONS = {
   resolve_conversation: 'i-lucide-circle-check',
   change_priority: 'i-lucide-signal-high',
   add_sla: 'i-lucide-gauge',
+  trigger_flow: 'i-lucide-git-branch',
 };
 
 const DEFAULT_ACTION_ICON = 'i-lucide-zap';
@@ -153,6 +154,7 @@ export const getActionOptions = ({
   type,
   addNoneToListFn,
   priorityOptions,
+  flows,
 }) => {
   const actionsMap = {
     assign_agent: addNoneToListFn ? addNoneToListFn(agents) : agents,
@@ -164,6 +166,7 @@ export const getActionOptions = ({
     remove_label: generateLabelOptions(labels),
     change_priority: priorityOptions,
     add_sla: slaPolicies,
+    trigger_flow: flows || [],
   };
   return actionsMap[type];
 };

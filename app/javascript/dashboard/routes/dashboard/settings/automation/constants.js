@@ -832,6 +832,11 @@ export const AUTOMATION_ACTION_TYPES = [
     label: 'ADD_SLA',
     inputType: 'search_select',
   },
+  {
+    key: 'trigger_flow',
+    label: 'TRIGGER_FLOW',
+    inputType: 'search_select',
+  },
 ];
 
 export const DEFAULT_DELAY_MINUTES = 240; // 4 hours

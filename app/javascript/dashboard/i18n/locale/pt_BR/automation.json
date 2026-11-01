@@ -220,6 +220,7 @@
       "ADD_PRIVATE_NOTE": "Adicionar uma Nota Privada",
       "CHANGE_PRIORITY": "Alterar Prioridade",
       "ADD_SLA": "Adicionar SLA",
+      "TRIGGER_FLOW": "Disparar Fluxo do Flowbuilder",
       "OPEN_CONVERSATION": "Abrir conversa",
       "PENDING_CONVERSATION": "Marcar conversa como pendente"
     },

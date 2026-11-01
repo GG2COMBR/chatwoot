@@ -84,7 +84,7 @@ class Custom::Flows::ExecutionEngine
   end
 
   ESCAPE_KEYWORDS = %w[sair cancelar atendente humano menu].freeze
-  PASS_THROUGH_NODES = %w[kanban_stage_change manage_labels condition_router try_catch].freeze
+  PASS_THROUGH_NODES = %w[start kanban_stage_change manage_labels condition_router try_catch].freeze
 
   def global_escape_intent?
     text = input_data[:content].to_s.strip.downcase
