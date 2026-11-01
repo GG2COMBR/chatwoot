@@ -117,10 +117,10 @@ const nodePreview = computed(() => {
   if (props.type === 'human_transfer') {
     const teamName = props.data?.team_name || (props.data?.team_id ? `Equipe #${props.data.team_id}` : null);
     const agentName = props.data?.agent_name || (props.data?.assigned_agent_id ? `Atendente #${props.data.assigned_agent_id}` : null);
-    if (teamName && agentName) return `Destino: ${teamName} • ${agentName}`;
-    if (teamName) return `Equipe: ${teamName}`;
-    if (agentName) return `Atendente: ${agentName}`;
-    return props.data?.transfer_message || 'Transferir para atendimento humano';
+    const destination = teamName && agentName ? `${teamName} • ${agentName}` : (teamName || agentName || 'Fila Geral');
+    const hasHours = props.data?.enable_business_hours !== false;
+    const hours = hasHours ? ` [${props.data?.open_hour || '08:00'}-${props.data?.close_hour || '18:00'}]` : ' [24h]';
+    return `Destino: ${destination}${hours}`;
   }
   if (props.data?.text) return props.data.text;
   if (props.data?.body) return props.data.body;

@@ -13,11 +13,13 @@ module Custom::Flows::NodeHandlers
     agent_id = node.dig(:data, :agent_id) || node.dig(:data, :assigned_agent_id)
     agent = session.account.users.find_by(id: agent_id) if agent_id.present?
 
-    transfer_msg = node.dig(:data, :transfer_message) || node.dig(:data, :text)
-    create_outgoing_message(transfer_msg) if transfer_msg.present?
-
     config = node[:data] || {}
     result = Custom::Flows::ScheduleEvaluatorService.route_and_handoff!(session.conversation, team, config)
+
+    if result[:open]
+      transfer_msg = node.dig(:data, :transfer_message) || node.dig(:data, :text)
+      create_outgoing_message(transfer_msg) if transfer_msg.present?
+    end
 
     session.conversation.update!(assignee: agent) if agent && session.conversation
 

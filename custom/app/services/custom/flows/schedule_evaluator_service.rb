@@ -25,11 +25,15 @@ class Custom::Flows::ScheduleEvaluatorService
 
     def interpolate_message(template, conversation, team = nil)
       contact_name = conversation.contact&.name || 'Cliente'
+      first_name = contact_name.split(/\s+/).first || 'Cliente'
       team_name = team&.name&.titleize || 'Atendimento'
+      account_name = conversation.account&.name || 'Nossa Empresa'
 
       (template || DEFAULT_OUT_OF_OFFICE)
+        .gsub('{{contact.first_name}}', first_name)
         .gsub('{{contact.name}}', contact_name)
         .gsub('{{team.name}}', team_name)
+        .gsub('{{account.name}}', account_name)
     end
   end
 
@@ -40,6 +44,10 @@ class Custom::Flows::ScheduleEvaluatorService
   end
 
   def open?
+    if @target.is_a?(Hash) && (@target[:enable_business_hours] == false || @target['enable_business_hours'] == false)
+      return true
+    end
+
     if @target.is_a?(Inbox)
       inbox_open?
     elsif @target.is_a?(Hash)
@@ -95,9 +103,19 @@ class Custom::Flows::ScheduleEvaluatorService
 
   def hash_schedule_open?
     weekly = (target[:weekly_schedule] || target['weekly_schedule'])&.with_indifferent_access
-    return default_business_hours_open? if weekly.blank?
+    return evaluate_day_schedule(weekly[DAY_MAP[at.wday]]) if weekly.present?
 
-    evaluate_day_schedule(weekly[DAY_MAP[at.wday]])
+    working_days = target[:working_days] || target['working_days']
+    if working_days.present?
+      day_key = DAY_MAP[at.wday].to_s
+      return false unless working_days.map(&:to_s).include?(day_key)
+
+      open_time = target[:open_hour] || target['open_hour'] || '08:00'
+      close_time = target[:close_hour] || target['close_hour'] || '18:00'
+      return time_within_range?(open_time, close_time)
+    end
+
+    default_business_hours_open?
   end
 
   def evaluate_day_schedule(day_config)
