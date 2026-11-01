@@ -9,8 +9,8 @@ class Custom::SeedService
     new.perform!(with_demo: with_demo)
   end
 
-  def perform!(with_demo: true)
-    account = find_or_create_account
+  def perform!(with_demo: true, account: nil)
+    account = account.presence || find_or_create_account
     setup_enterprise_configuration(account)
     setup_bedrock_configuration
     admin = setup_admin_user(account)

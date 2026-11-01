@@ -88,8 +88,8 @@ RSpec.describe Custom::SeedService do
     end
 
     it 'supports clean minimal setup when with_demo is false' do
-      Account.create!(name: 'Conta Limpa Dev')
-      result = described_class.new.perform!(with_demo: false)
+      clean_account = Account.create!(name: 'Conta Limpa Dev')
+      result = described_class.new.perform!(with_demo: false, account: clean_account)
 
       expect(result[:with_demo]).to be false
       expect(result[:teams]).to be_empty
