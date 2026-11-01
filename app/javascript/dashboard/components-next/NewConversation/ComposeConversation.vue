@@ -204,6 +204,7 @@ const onPopoverShow = () => {
   // Cache-aware refetch, so newly synced WhatsApp templates show up here
   // even if the account-cache-invalidated websocket event was missed.
   store.dispatch('inboxes/get');
+  store.dispatch('teams/get');
 };
 
 const onPopoverHide = () => {

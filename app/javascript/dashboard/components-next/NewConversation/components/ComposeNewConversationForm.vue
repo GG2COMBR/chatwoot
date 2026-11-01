@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
+import { useMapGetter } from 'dashboard/composables/store';
 import { useVuelidate } from '@vuelidate/core';
 import { required, requiredIf } from '@vuelidate/validators';
 import { INBOX_TYPES, isVoiceCallEnabled } from 'dashboard/helper/inbox';
@@ -20,6 +21,7 @@ import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
 
 import ContactSelector from './ContactSelector.vue';
 import InboxSelector from './InboxSelector.vue';
+import TeamSelector from './TeamSelector.vue';
 import EmailOptions from './EmailOptions.vue';
 import MessageEditor from './MessageEditor.vue';
 import ActionButtons from './ActionButtons.vue';
@@ -57,9 +59,14 @@ const emit = defineEmits([
 const DEFAULT_FORMATTING = 'Context::Default';
 
 const copilot = useCopilotReply();
+const teamsList = useMapGetter('teams/getTeams');
 
+const selectedTeam = ref(null);
+const selectedStatus = ref('open');
 const showContactsDropdown = ref(false);
 const showInboxesDropdown = ref(false);
+const showTeamsDropdown = ref(false);
+const showStatusDropdown = ref(false);
 const showCcEmailsDropdown = ref(false);
 const showBccEmailsDropdown = ref(false);
 
@@ -138,6 +145,8 @@ const newMessagePayload = () => {
     ccEmails,
     bccEmails,
     currentUser: props.currentUser,
+    teamId: selectedTeam.value?.id,
+    status: selectedStatus.value,
     attachedFiles,
     directUploadsEnabled: props.isDirectUploadsEnabled,
   });
@@ -160,6 +169,8 @@ const isAnyDropdownActive = computed(() => {
   return (
     showContactsDropdown.value ||
     showInboxesDropdown.value ||
+    showTeamsDropdown.value ||
+    showStatusDropdown.value ||
     showCcEmailsDropdown.value ||
     showBccEmailsDropdown.value
   );
@@ -286,6 +297,8 @@ const clearForm = () => {
     bccEmails: '',
     attachedFiles: [],
   });
+  selectedTeam.value = null;
+  selectedStatus.value = 'open';
   v$.value.$reset();
 };
 
@@ -313,6 +326,8 @@ const handleSendWhatsappMessage = async ({ message, templateParams }) => {
     message,
     templateParams,
     currentUser: props.currentUser,
+    teamId: selectedTeam.value?.id,
+    status: selectedStatus.value,
   });
   await emit('createConversation', {
     payload: whatsappMessagePayload,
@@ -327,6 +342,8 @@ const handleSendTwilioMessage = async ({ message, templateParams }) => {
     message,
     templateParams,
     currentUser: props.currentUser,
+    teamId: selectedTeam.value?.id,
+    status: selectedStatus.value,
   });
   await emit('createConversation', {
     payload: twilioMessagePayload,
@@ -393,6 +410,19 @@ useKeyboardEvents({
         @update-inbox="removeTargetInbox"
         @toggle-dropdown="showInboxesDropdown = $event"
         @handle-inbox-action="handleInboxAction"
+      />
+
+      <TeamSelector
+        v-if="!showNoInboxAlert"
+        :teams="teamsList"
+        :selected-team="selectedTeam"
+        :show-teams-dropdown="showTeamsDropdown"
+        :selected-status="selectedStatus"
+        :show-status-dropdown="showStatusDropdown"
+        @update-team="selectedTeam = $event"
+        @toggle-teams-dropdown="showTeamsDropdown = $event"
+        @update-status="selectedStatus = $event"
+        @toggle-status-dropdown="showStatusDropdown = $event"
       />
 
       <EmailOptions

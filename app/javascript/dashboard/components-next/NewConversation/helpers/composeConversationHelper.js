@@ -129,16 +129,33 @@ export const prepareNewMessagePayload = ({
   ccEmails,
   bccEmails,
   currentUser,
+  assigneeId,
+  teamId,
+  status,
   attachedFiles = [],
   directUploadsEnabled = false,
 }) => {
+  const resolvedAssigneeId =
+    assigneeId !== undefined ? assigneeId : currentUser?.id;
+
   const payload = {
     inboxId: targetInbox.id,
     sourceId: targetInbox.sourceId,
     contactId: Number(selectedContact.id),
     message: { content: message },
-    assigneeId: currentUser.id,
   };
+
+  if (resolvedAssigneeId) {
+    payload.assigneeId = resolvedAssigneeId;
+  }
+
+  if (teamId) {
+    payload.teamId = teamId;
+  }
+
+  if (status) {
+    payload.status = status;
+  }
 
   if (attachedFiles?.length) {
     payload.files = prepareAttachmentPayload(
@@ -168,14 +185,33 @@ export const prepareWhatsAppMessagePayload = ({
   message,
   templateParams,
   currentUser,
+  assigneeId,
+  teamId,
+  status,
 }) => {
-  return {
+  const resolvedAssigneeId =
+    assigneeId !== undefined ? assigneeId : currentUser?.id;
+
+  const payload = {
     inboxId: targetInbox.id,
     sourceId: targetInbox.sourceId,
     contactId: selectedContact.id,
     message: { content: message, template_params: templateParams },
-    assigneeId: currentUser.id,
   };
+
+  if (resolvedAssigneeId) {
+    payload.assigneeId = resolvedAssigneeId;
+  }
+
+  if (teamId) {
+    payload.teamId = teamId;
+  }
+
+  if (status) {
+    payload.status = status;
+  }
+
+  return payload;
 };
 
 // API Calls
