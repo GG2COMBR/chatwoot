@@ -12,6 +12,15 @@ Rails.application.routes.draw do
       end
     end
 
+    resources :spreadsheet_campaigns, controller: 'spreadsheet_campaigns', only: [] do
+      collection do
+        post :parse_csv_headers
+        post :send_test
+        post :retry_failed
+        get :recipients
+      end
+    end
+
     scope module: 'kanban', as: 'kanban' do
       resources :kanban_boards, controller: 'boards' do
         resources :stages, controller: 'stages' do
