@@ -14,6 +14,11 @@ class Custom::KanbanStage < ApplicationRecord
            dependent: :nullify,
            inverse_of: :custom_kanban_stage
 
+  has_many :custom_kanban_cards,
+           class_name: 'Custom::KanbanCard',
+           foreign_key: :custom_kanban_stage_id,
+           dependent: :destroy
+
   validates :name, presence: true
   validates :slug, presence: true, uniqueness: { scope: :custom_kanban_board_id }
 

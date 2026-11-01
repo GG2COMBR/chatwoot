@@ -11,5 +11,29 @@ Rails.application.routes.draw do
         post :duplicate
       end
     end
+
+    scope module: 'kanban', as: 'kanban' do
+      resources :kanban_boards, controller: 'boards' do
+        resources :stages, controller: 'stages' do
+          collection do
+            post :reorder
+          end
+        end
+        resources :cards, controller: 'cards' do
+          member do
+            post :move
+          end
+          resources :notes, controller: 'card_notes', only: %i[index create destroy]
+        end
+        resources :reasons, controller: 'reasons', only: %i[index create destroy]
+      end
+
+      resources :kanban_cards, controller: 'cards', only: %i[show update destroy] do
+        member do
+          post :move
+        end
+        resources :notes, controller: 'card_notes', only: %i[index create destroy]
+      end
+    end
   end
 end
