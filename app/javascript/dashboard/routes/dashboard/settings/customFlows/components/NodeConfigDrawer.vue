@@ -28,9 +28,11 @@ const store = useStore();
 const teamsList = useMapGetter('teams/getTeams');
 const agentsList = useMapGetter('agents/getAgents');
 const labelsList = useMapGetter('labels/getLabels');
+const conversationAttributes = useMapGetter('attributes/getConversationAttributes');
 
 const kanbanFunnels = ref([]);
 const isLoadingKanban = ref(false);
+const isCreatingClosureAttr = ref(false);
 
 const fetchKanbanOptions = async () => {
   isLoadingKanban.value = true;
@@ -44,10 +46,29 @@ const fetchKanbanOptions = async () => {
   }
 };
 
+const createDefaultClosureAttribute = async () => {
+  isCreatingClosureAttr.value = true;
+  try {
+    await store.dispatch('attributes/create', {
+      attribute_display_name: 'Motivo de Encerramento',
+      attribute_key: 'motivo_encerramento',
+      attribute_model: 'conversation_attribute',
+      attribute_display_type: 'text',
+      attribute_description: 'Motivo de conclusão registrado no encerramento da conversa',
+    });
+    updateData('closure_attribute_key', 'motivo_encerramento');
+  } catch (err) {
+    // ignore
+  } finally {
+    isCreatingClosureAttr.value = false;
+  }
+};
+
 onMounted(() => {
   store.dispatch('teams/get');
   store.dispatch('agents/get');
   store.dispatch('labels/get');
+  store.dispatch('attributes/get');
   fetchKanbanOptions();
 });
 
@@ -1227,16 +1248,50 @@ const onProviderChange = provider => {
       <!-- Configuração por Tipo: Finalização com Motivo -->
       <div v-if="node.type === 'finish'" class="flex flex-col gap-3">
         <div>
-          <label class="block text-xs font-medium text-n-slate-11 mb-1">
-            Campo de Atributo de Fechamento (Custom Attribute)
-          </label>
-          <input
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-medium text-n-slate-11">
+              Campo de Motivo de Encerramento (Custom Attribute)
+            </label>
+            <button
+              v-if="!conversationAttributes || !conversationAttributes.some(a => a.attributeKey === 'motivo_encerramento')"
+              type="button"
+              class="text-[11px] text-n-brand hover:underline font-medium"
+              :disabled="isCreatingClosureAttr"
+              @click="createDefaultClosureAttribute"
+            >
+              + Criar "motivo_encerramento"
+            </button>
+          </div>
+
+          <select
+            v-if="conversationAttributes && conversationAttributes.length > 0"
             :value="nodeData.closure_attribute_key || 'motivo_encerramento'"
-            type="text"
-            placeholder="Ex: motivo_encerramento"
-            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand font-mono"
-            @input="updateData('closure_attribute_key', $event.target.value)"
-          />
+            class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+            @change="updateData('closure_attribute_key', $event.target.value)"
+          >
+            <option value="">-- Não gravar motivo em atributo --</option>
+            <option
+              v-for="attr in conversationAttributes"
+              :key="attr.id"
+              :value="attr.attributeKey"
+            >
+              🏷️ {{ attr.attributeDisplayName }} ({{ attr.attributeKey }})
+            </option>
+          </select>
+
+          <div
+            v-else
+            class="p-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2"
+          >
+            <span class="text-[11px]">Nenhum atributo de conversa encontrado.</span>
+            <Button
+              label="Criar Atributo"
+              size="xs"
+              variant="faded"
+              :loading="isCreatingClosureAttr"
+              @click="createDefaultClosureAttribute"
+            />
+          </div>
         </div>
 
         <div>

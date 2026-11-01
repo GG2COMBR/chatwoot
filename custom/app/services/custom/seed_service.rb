@@ -12,6 +12,7 @@ class Custom::SeedService
   def perform!
     account = find_or_create_account
     admin, vendas_agent, sac_agent = setup_users(account)
+    setup_custom_attributes(account)
     teams = setup_teams(account, vendas_agent, sac_agent)
     inbox = setup_inbox(account, [admin, vendas_agent, sac_agent])
     flow = setup_sample_flow(account)
@@ -176,12 +177,34 @@ class Custom::SeedService
     }
   end
 
+  def setup_custom_attributes(account)
+    CustomAttributeDefinition.find_or_create_by!(
+      account: account,
+      attribute_key: 'etapa_fluxo',
+      attribute_model: 'conversation_attribute'
+    ) do |cad|
+      cad.attribute_display_name = 'Etapa do Fluxo'
+      cad.attribute_display_type = 'text'
+      cad.attribute_description = 'Status do cliente na etapa atual do Flowbuilder'
+    end
+
+    CustomAttributeDefinition.find_or_create_by!(
+      account: account,
+      attribute_key: 'motivo_encerramento',
+      attribute_model: 'conversation_attribute'
+    ) do |cad|
+      cad.attribute_display_name = 'Motivo de Encerramento'
+      cad.attribute_display_type = 'text'
+      cad.attribute_description = 'Motivo de conclusão registrado no encerramento da conversa'
+    end
+  end
+
   def setup_purchase_journey_flow(account)
     flow = Custom::Flow.find_or_initialize_by(account: account, name: '🛍️ Jornada de Compra Completa — E-commerce & URA')
     flow.description = 'Fluxo de vendas integrado ao Magento: IA Slot Filling, Consulta API, Try-Catch, Pix Copia-e-Cola e Kanban'
     flow.status = :published
     flow.trigger_type = 'default'
-    flow.trigger_config = { 'status_custom_attribute_key' => 'status_atendimento' }
+    flow.trigger_config = { 'status_custom_attribute_key' => 'etapa_fluxo' }
     flow.nodes = purchase_journey_nodes
     flow.edges = purchase_journey_edges
     flow.save!

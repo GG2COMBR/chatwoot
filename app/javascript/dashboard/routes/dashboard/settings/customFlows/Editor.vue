@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, markRaw } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useStore, useMapGetter } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
@@ -21,8 +22,11 @@ defineOptions({
   name: 'CustomFlowsEditor',
 });
 
+const store = useStore();
 const route = useRoute();
 const router = useRouter();
+
+const conversationAttributes = useMapGetter('attributes/getConversationAttributes');
 
 const flow = ref(null);
 const isLoading = ref(true);
@@ -83,6 +87,7 @@ const fetchFlow = async () => {
 
 onMounted(() => {
   fetchFlow();
+  store.dispatch('attributes/get');
 });
 
 const onConnect = params => {
@@ -277,13 +282,27 @@ const backToList = () => {
         <!-- Campo Personalizado de Conversa para Status -->
         <div class="hidden lg:flex items-center gap-2 pl-4 border-l border-n-strong">
           <span class="text-xs text-n-slate-10 font-medium">Status da Conversa:</span>
-          <input
+          <select
+            v-if="conversationAttributes && conversationAttributes.length > 0"
             v-model="statusAttrKey"
-            type="text"
-            placeholder="Ex: etapa_fluxo"
-            class="px-2.5 py-1 text-xs rounded-lg border border-n-strong bg-n-solid-1 text-n-slate-12 outline-none focus:border-n-brand font-mono w-36"
-            title="Chave do atributo de conversa que guardará o status da etapa atual"
-          />
+            class="px-2.5 py-1 text-xs rounded-lg border border-n-strong bg-n-solid-1 text-n-slate-12 outline-none focus:border-n-brand font-medium max-w-[220px]"
+            title="Selecione o atributo personalizado que armazenará a etapa do fluxo"
+          >
+            <option value="">-- Não rastrear status --</option>
+            <option
+              v-for="attr in conversationAttributes"
+              :key="attr.id"
+              :value="attr.attributeKey"
+            >
+              🏷️ {{ attr.attributeDisplayName }} ({{ attr.attributeKey }})
+            </option>
+          </select>
+          <span
+            v-else
+            class="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"
+          >
+            Sem atributos de conversa
+          </span>
         </div>
       </div>
 

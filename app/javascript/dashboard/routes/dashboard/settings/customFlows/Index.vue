@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useStore, useMapGetter } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
 import CustomFlowsAPI from 'dashboard/api/customFlows';
 import SettingsLayout from '../SettingsLayout.vue';
@@ -13,8 +14,11 @@ defineOptions({
   name: 'CustomFlowsIndex',
 });
 
+const store = useStore();
 const router = useRouter();
 const route = useRoute();
+
+const conversationAttributes = useMapGetter('attributes/getConversationAttributes');
 
 const flows = ref([]);
 const isLoading = ref(true);
@@ -23,6 +27,7 @@ const statusFilter = ref('all');
 
 const showCreateModal = ref(false);
 const isSubmitting = ref(false);
+const isCreatingAttribute = ref(false);
 const newFlowName = ref('');
 const newFlowDescription = ref('');
 const newFlowTrigger = ref('default');
@@ -42,7 +47,27 @@ const fetchFlows = async () => {
 
 onMounted(() => {
   fetchFlows();
+  store.dispatch('attributes/get');
 });
+
+const createDefaultStatusAttribute = async () => {
+  isCreatingAttribute.value = true;
+  try {
+    await store.dispatch('attributes/create', {
+      attribute_display_name: 'Etapa do Fluxo',
+      attribute_key: 'etapa_fluxo',
+      attribute_model: 'conversation_attribute',
+      attribute_display_type: 'text',
+      attribute_description: 'Status do cliente na etapa atual do Flowbuilder',
+    });
+    newFlowStatusAttrKey.value = 'etapa_fluxo';
+    useAlert('Atributo "etapa_fluxo" criado com sucesso!');
+  } catch (err) {
+    useAlert('Falha ao criar atributo personalizado');
+  } finally {
+    isCreatingAttribute.value = false;
+  }
+};
 
 const filteredFlows = computed(() => {
   return flows.value.filter(flow => {
@@ -360,15 +385,50 @@ const formatDate = dateString => {
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-n-slate-11 mb-1">
-                Campo de Status da Conversa (Custom Attribute)
-              </label>
-              <input
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-medium text-n-slate-11">
+                  Campo de Status da Conversa (Custom Attribute)
+                </label>
+                <button
+                  v-if="!conversationAttributes || conversationAttributes.length === 0"
+                  type="button"
+                  class="text-[11px] text-n-brand hover:underline font-medium"
+                  :disabled="isCreatingAttribute"
+                  @click="createDefaultStatusAttribute"
+                >
+                  + Criar "etapa_fluxo"
+                </button>
+              </div>
+
+              <select
+                v-if="conversationAttributes && conversationAttributes.length > 0"
                 v-model="newFlowStatusAttrKey"
-                type="text"
-                placeholder="Ex: etapa_fluxo ou status_venda"
-                class="w-full px-3 py-2 text-sm rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand font-mono text-xs"
-              />
+                class="w-full px-3 py-2 text-xs rounded-lg border border-n-strong bg-n-solid-2 text-n-slate-12 outline-none focus:border-n-brand"
+              >
+                <option value="">-- Não rastrear status em atributo --</option>
+                <option
+                  v-for="attr in conversationAttributes"
+                  :key="attr.id"
+                  :value="attr.attributeKey"
+                >
+                  🏷️ {{ attr.attributeDisplayName }} ({{ attr.attributeKey }})
+                </option>
+              </select>
+
+              <div
+                v-else
+                class="p-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2"
+              >
+                <span class="text-[11px]">Nenhum atributo de conversa encontrado.</span>
+                <Button
+                  label="Criar 'etapa_fluxo'"
+                  size="xs"
+                  variant="faded"
+                  :loading="isCreatingAttribute"
+                  @click="createDefaultStatusAttribute"
+                />
+              </div>
+
               <p class="text-[11px] text-n-slate-10 mt-1">
                 Armazena o status do passo atual na conversa para métricas de tempo e automações.
               </p>
